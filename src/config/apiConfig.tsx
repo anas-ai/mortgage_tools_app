@@ -1,4 +1,5 @@
 import Config from 'react-native-config';
+console.log('BASE_URL:', Config.BASE_URL);
 
 export const ApiConfig = {
   LOGIN_API: `${Config.BASE_URL}/login`,
