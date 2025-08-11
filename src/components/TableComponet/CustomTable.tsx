@@ -68,11 +68,11 @@ const CustomTable = ({
 
   // ===== Scroll Animation =====
   const scrollX = useRef(new Animated.Value(0)).current;
-  const minWidth = scale(100);
-  const maxWidth = scale(230);
+  const minWidth = scale(140);
+  const maxWidth = scale(200);
 
   const animatedWidth = scrollX.interpolate({
-    inputRange: [0, 150], 
+    inputRange: [0, 100], 
     outputRange: [maxWidth, minWidth],
     extrapolate: 'clamp',
   });

@@ -30,8 +30,7 @@ const LoginFrom = ({
   onNavigate: (screen: 'forgot' | 'signUp') => void;
 }) => {
   const [loading, setLoading] = useState(false);
-    const toast = useToast();
-
+  const toast = useToast();
 
   const {
     control,
@@ -48,22 +47,21 @@ const LoginFrom = ({
   const onSubmit = async (data: FormData) => {
     setLoading(true);
     try {
-      await login(data,);
-      
-      toast.show('Login Successful', {
+      const success = await login(data);
+      if (success) {
+        toast.show('Login Successful', {
           type: 'success',
           placement: 'bottom',
           duration: 2000,
         });
+      }
     } catch {
-       toast.show('Login Failed. Please check your credentials.', {
+      toast.show('Login Failed. Please check your credentials.', {
         type: 'danger',
         placement: 'top',
         duration: 3000,
       });
-
-    }finally{
-      
+    } finally {
       setLoading(false);
     }
   };

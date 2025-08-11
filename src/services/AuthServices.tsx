@@ -23,12 +23,14 @@ export const login = async ({ username, password }: LoginFromParams) => {
       const userInfo = response?.data.user
       SaveLoginToken(token);
       SaveObjectToStorage('userInfo',userInfo)
-      const userInfo2 = GetObjectFromStorage('userInfo')
-      console.log(userInfo2,'userInfo2')
-      
+      // const userInfo2 = GetObjectFromStorage('userInfo')
+      // console.log(userInfo2,'userInfo2')
+      return true
     }
+    return false
   } catch (error: any) {
     console.log('Login Error:', error?.response?.data || error.message);
+    throw error
   }
 };
 
