@@ -8,6 +8,9 @@ export const ApiConfig = {
     `${Config.BASE_URL}/get/sidebar/menu?role=${role}`,
 
   LOGOUT_API: `${Config.BASE_URL}/logout`,
-  DASHBOARD_API: (userId: number, roleId: number) =>
-    `${Config.BASE_URL}/dashboard/${userId}/${roleId}`,
+
+  DASHBOARD_API: (userId: number, sharedId = 0) =>
+    `${Config.BASE_URL}/dashboard/${userId}/${sharedId}`,
+
+  STATUS_COLLAP_SAVE_API: `${Config.BASE_URL}/save/statuscollap`,
 };

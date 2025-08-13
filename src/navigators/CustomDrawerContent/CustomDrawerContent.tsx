@@ -59,7 +59,7 @@ const CustomDrawerContent = ({ navigation }: DrawerContentComponentProps) => {
     try {
       const response = await fetchMenuData();
       setMenuData(response);
-      console.log(response, 'response');
+      // console.log(response, 'response');
     } catch (error) {
       console.log('Error fetching side menu:', error);
     }finally{
@@ -191,7 +191,7 @@ const CustomDrawerContent = ({ navigation }: DrawerContentComponentProps) => {
                 containerStyle={styles.listItemContainer}
                 content={
                   <>
-                    <VectorIcon {...getIconProps(menu.icon)} />
+                    <VectorIcon  {...getIconProps(menu.icon)} />
                     <ListItem.Content>
                       <ListItem.Title style={{ marginLeft: scale(16) }}>
                         <CustomText

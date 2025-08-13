@@ -39,7 +39,7 @@ export type IconType =
 
 interface VectorIconProps {
   type: IconType;
-  name: string;
+  name?: string;
   size?: number;
   color?: string;
   style?: StyleProp<TextStyle>;

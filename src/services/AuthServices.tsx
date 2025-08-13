@@ -39,6 +39,7 @@ export const logout = async (toast:any) => {
 
   try {
     const response = await axiosInstance.post(ApiConfig.LOGOUT_API);
+    // console.log(response,'reslogout')
 
     if (response.status === 200) {
       logout();

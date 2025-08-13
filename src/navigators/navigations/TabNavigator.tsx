@@ -10,6 +10,7 @@ import ProfileScreen from '../../screens/TabsScreen/ProfileScreen';
 import { Colors } from '../../constants/constants';
 import { Animated, Text, View, Easing, StyleSheet } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import VectorIcon from '../../components/common/CustomIcons';
 
 const Tab = createBottomTabNavigator();
 
@@ -19,7 +20,7 @@ const TabNavigator = () => {
   const rotateValue = new Animated.Value(0); 
   const bgOpacity = new Animated.Value(1); 
 
-  const animateTab = isFocused => {
+  const animateTab = (isFocused:any) => {
     Animated.parallel([
       Animated.timing(opacity, {
         toValue: isFocused ? 1 : 0.5,
@@ -57,9 +58,8 @@ const TabNavigator = () => {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarStyle: {
-          height: scale(60),
-          width: '90%',
-          borderRadius: scale(30),
+          height: scale(55),
+          width: '100%',
           backgroundColor: 'transparent',
           elevation: 8,
           shadowColor: '#000',
@@ -67,7 +67,6 @@ const TabNavigator = () => {
           shadowOpacity: 0.2,
           shadowRadius: 4,
           alignSelf: 'center',
-          marginBottom: scale(10),
           overflow: 'hidden',
         },
         tabBarBackground: () => (
@@ -112,7 +111,8 @@ const TabNavigator = () => {
                 ],
               }}
             >
-              <Icon name={iconName} size={scale(24)} color={color} />
+              {/* <Icon name={iconName} size={scale(24)} color={color} /> */}
+              <VectorIcon name={iconName} size={scale(24)} color={color} type='MaterialCommunityIcons'/>
             </Animated.View>
           );
         },
@@ -131,7 +131,7 @@ const TabNavigator = () => {
             <Animated.Text
               style={{
                 color: focused ? colors.white : colors.white,
-                fontSize: scale(12),
+                fontSize: scale(11),
                 fontWeight: '600',
                 textAlign: 'center',
                 transform: [
