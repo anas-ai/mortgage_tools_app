@@ -4,7 +4,7 @@ export const screenHeight = Dimensions.get("screen").height;
 export const screenWidth = Dimensions.get("screen").width;
 
 export enum Colors {
-  primary = "#76D54A",
+  primary = "#18254D",
   // primary = "#EDD228",
   background = "#fff",
   text = "#222",

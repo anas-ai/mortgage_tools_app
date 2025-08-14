@@ -74,7 +74,7 @@ const DashboardScreen = ({ navigation }: { navigation: any }) => {
         navigation={navigation}
         IconName="bars"
         IconSize={18}
-        backgroundColor={Colors.tertiary}
+        backgroundColor={Colors.primary}
         titleColor={colors.white}
         IconColor={colors.white}
       />
@@ -178,9 +178,15 @@ const DashboardScreen = ({ navigation }: { navigation: any }) => {
           onChange={item => setSelectedRows(item.value)}
         />
       </View>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      {/* <ScrollView showsVerticalScrollIndicator={false}>
         <CustomTable />
-      </ScrollView>
+      </ScrollView> */}
+      <FlatList
+        data={[1]}
+        renderItem={() => <CustomTable />}
+        showsVerticalScrollIndicator={false}
+        removeClippedSubviews
+      />
     </SafeAreaView>
   );
 };

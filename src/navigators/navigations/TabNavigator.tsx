@@ -17,10 +17,10 @@ const Tab = createBottomTabNavigator();
 const TabNavigator = () => {
   const opacity = new Animated.Value(0);
   const scaleValue = new Animated.Value(1);
-  const rotateValue = new Animated.Value(0); 
-  const bgOpacity = new Animated.Value(1); 
+  const rotateValue = new Animated.Value(0);
+  const bgOpacity = new Animated.Value(1);
 
-  const animateTab = (isFocused:any) => {
+  const animateTab = (isFocused: any) => {
     Animated.parallel([
       Animated.timing(opacity, {
         toValue: isFocused ? 1 : 0.5,
@@ -66,23 +66,9 @@ const TabNavigator = () => {
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.2,
           shadowRadius: 4,
-          alignSelf: 'center',
-          overflow: 'hidden',
         },
         tabBarBackground: () => (
-          <View style={{ flex: 1 }}>
-            <Animated.View
-              style={{
-                ...StyleSheet.absoluteFillObject,
-                backgroundColor: Colors.tertiary,
-                opacity: bgOpacity,
-              }}
-            />
-            <LinearGradient
-              colors={['#4A90E2', '#4f6fbdff']}
-              style={StyleSheet.absoluteFillObject}
-            />
-          </View>
+          <View style={{ flex: 1, backgroundColor: Colors.primary }}></View>
         ),
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
@@ -112,7 +98,12 @@ const TabNavigator = () => {
               }}
             >
               {/* <Icon name={iconName} size={scale(24)} color={color} /> */}
-              <VectorIcon name={iconName} size={scale(24)} color={color} type='MaterialCommunityIcons'/>
+              <VectorIcon
+                name={iconName}
+                size={scale(24)}
+                color={color}
+                type="MaterialCommunityIcons"
+              />
             </Animated.View>
           );
         },
