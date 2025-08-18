@@ -2,15 +2,12 @@ import { ApiConfig } from '../config/apiConfig';
 import axiosInstance from '../utils/axiosInstance';
 import { GetObjectFromStorage } from '../utils/MmkvStorageHelper';
 
-
 interface saveStatusCollapsetypes {
   statusid?: number;
   is_collapsed?: number;
   user_id?: number;
   shareuserid?: number;
 }
-
-
 
 export const fetchDashboardData = async () => {
   const userInfo = GetObjectFromStorage<any>('userInfo');
@@ -21,11 +18,11 @@ export const fetchDashboardData = async () => {
       ApiConfig.DASHBOARD_API(userId, sharedId),
     );
     // console.log(res?.data?.fileStatus, 'resss');
+    console.log(res?.data, 'resss');
+    console.log(res?.data?.columns.name)
     return res;
   } catch (error) {}
 };
-
-
 
 export const saveStatusCollapse = async ({
   statusid,

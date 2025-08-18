@@ -1,5 +1,4 @@
 import Config from 'react-native-config';
-console.log('BASE_URL:', Config.BASE_URL);
 
 export const ApiConfig = {
   LOGIN_API: `${Config.BASE_URL}/login`,
@@ -13,4 +12,5 @@ export const ApiConfig = {
     `${Config.BASE_URL}/dashboard/${userId}/${sharedId}`,
 
   STATUS_COLLAP_SAVE_API: `${Config.BASE_URL}/save/statuscollap`,
+  STATUS_UPDATE_API: `${Config.BASE_URL}/statusupdate`,
 };

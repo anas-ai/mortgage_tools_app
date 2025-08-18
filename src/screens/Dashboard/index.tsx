@@ -1,45 +1,64 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { Skeleton } from '@rneui/themed';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Animated,
   FlatList,
   SafeAreaView,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
-import { useSharedValue, withTiming } from 'react-native-reanimated';
 import { scale } from 'react-native-size-matters';
 import VectorIcon from '../../components/common/CustomIcons';
 import CustomInput from '../../components/common/CustomInput';
 import CustomText from '../../components/common/CustomText';
 import HeaderComponent from '../../components/HeaderComponent';
-import CustomTable from '../../components/TableComponet/CustomTable';
+import CustomTable, {
+  FileStatus,
+} from '../../components/TableComponet/CustomTable';
 import { Colors } from '../../constants/constants';
+import { fetchDashboardData } from '../../services/DashboardServices';
 import { colors } from '../../styles/Colors';
 import { globalStyles } from '../../styles/GlobalStyle';
-import axiosInstance from '../../utils/axiosInstance';
-import { ApiConfig } from '../../config/apiConfig';
-import { GetObjectFromStorage } from '../../utils/MmkvStorageHelper';
-import { fetchDashboardData } from '../../services/DashboardServices';
-import { Skeleton } from '@rneui/themed';
 
 const DashboardScreen = ({ navigation }: { navigation: any }) => {
   const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [isExpanded, setIsExpanded] = useState<{ [key: number]: boolean }>({});
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await fetchDashboardData();
+      const mainData = res?.data.fileStatus.map((m: any) => {
+        return {
+          ...m,
+          files: res.data.statusTable[m.id] || [],
+        };
+      });
+      console.log('mainData', mainData);
+
+      setData({ ...res?.data, mainData });
+      
+      
+      const expandedState = res?.data.fileStatus?.reduce(
+        (acc: any, item: FileStatus) => ({
+          ...acc,
+          [item.id]: item?.collapse === 1,
+        }),
+        {},
+      )
+      setIsExpanded(expandedState || {});
+    } catch (error) {
+      console.log('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await fetchDashboardData();
-        setData(res?.data);
-      } catch (error) {
-        console.log('Error fetching dashboard data:', error);
-      }
-    };
-
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const userOptions = [
     { label: 'User 1', value: 'user1' },
@@ -56,16 +75,10 @@ const DashboardScreen = ({ navigation }: { navigation: any }) => {
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [selectedRows, setSelectedRows] = useState<string | null>(null);
   const [isTableChange, setIsTableChange] = useState<boolean>(false);
-  const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
   const toggleTableIcon = () => {
     setIsTableChange(!isTableChange);
   };
-
-  const expandValue = useSharedValue(0);
-  useEffect(() => {
-    expandValue.value = withTiming(isExpanded ? 1 : 0, { duration: 300 });
-  }, [isExpanded]);
 
   return (
     <SafeAreaView style={globalStyles.globalContainer}>
@@ -178,14 +191,14 @@ const DashboardScreen = ({ navigation }: { navigation: any }) => {
           onChange={item => setSelectedRows(item.value)}
         />
       </View>
-      {/* <ScrollView showsVerticalScrollIndicator={false}>
-        <CustomTable />
-      </ScrollView> */}
-      <FlatList
-        data={[1]}
-        renderItem={() => <CustomTable />}
-        showsVerticalScrollIndicator={false}
-        removeClippedSubviews
+
+      <CustomTable
+        data={data?.mainData}
+        loading={loading}
+        columns={data?.columns}
+        options = {data?.options}
+        isExpanded={isExpanded}
+        setIsExpanded={setIsExpanded}
       />
     </SafeAreaView>
   );
