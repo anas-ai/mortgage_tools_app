@@ -28,7 +28,7 @@ const HeaderComponent = ({
       style={{
         backgroundColor: backgroundColor,
         paddingTop: statusBarHeight,
-        height: scale(55) + statusBarHeight,
+        height: scale(60) + statusBarHeight,
         width: '100%',
         elevation: scale(5),
       }}

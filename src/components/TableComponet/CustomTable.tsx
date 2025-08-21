@@ -17,6 +17,7 @@ import { saveStatusCollapse } from '../../services/DashboardServices';
 import { colors } from '../../styles/Colors';
 import { GetObjectFromStorage } from '../../utils/MmkvStorageHelper';
 import debounce from 'lodash.debounce';
+import ChatColumn from './ChatColumn';
 
 export interface FileStatus {
   id: number;
@@ -60,14 +61,10 @@ const TableRow = ({
   index,
   isExpanded,
   toggleRow,
-  status,
-  setStatus,
   scrollX,
   column,
   option,
 }: TableRowProps) => {
-  
-
   const minWidth = scale(150);
   const maxWidth = scale(260);
 
@@ -77,19 +74,26 @@ const TableRow = ({
     extrapolate: 'clamp',
   });
 
-  const [selectedValues, setSelectedValues] = useState<{ [key: string]: any }>(
-    {},
-  );
+  const [selectedValues, setSelectedValues] = useState<{
+    [fileId: string]: { [colKey: string]: any };
+  }>({});
 
-  const getStatusColor = (id: number, list: any) => {
-    const item: any = list.find((f: any) => f.id === id);
+  const getStatusColor = (id: number | string, list: any[]) => {
+    const item: any = list.find((f: any) => f.id == id);
     // console.log(id, list, 'item');
     return item || '#252525';
   };
-  const handleChange = (fileId: string | number, selected: any) => {
+  const handleChange = (
+    fileId: string | number,
+    colKey: string,
+    selected: any,
+  ) => {
     setSelectedValues(prev => ({
       ...prev,
-      [fileId]: selected,
+      [fileId]: {
+        ...prev[fileId],
+        [colKey]: selected,
+      },
     }));
     getStatusColor(selected?.lending_type_id, option?.priority);
   };
@@ -109,15 +113,45 @@ const TableRow = ({
     });
   }, [isExpanded[item.id]]);
 
+  // const getCellData = (file: any, colkey: string, colType: string) => {
+  //   let cellData = colkey ? file[colkey] : null;
+  //   if (colkey === 'get_manual_note') {
+  //     cellData = file['get_manual_note']?.note ?? null;
+  //   } else if (colkey === 'get_email_los_info') {
+  //     cellData = file['get_email_los_info']?.email ?? null;
+  //   } else if (['property_value', 'mortgage_size', 'ltv'].includes(colkey)) {
+  //     cellData = cellData ?? null;
+  //   }
 
-  const getCellData = (file:any,colkey:string,colType:string)=>{
-    let cellData = colkey ? file[colkey] : null;
-    
-  }
-  
+  //   if (colType === 'date' && cellData) {
+  //     try {
+  //       cellData = new Date(cellData).toLocaleDateString('en-US', {
+  //         month: 'short',
+  //         day: '2-digit',
+  //         year: 'numeric',
+  //       });
+  //     } catch (error) {
+  //       console.error(`Invalid data for  ${colkey}:`, cellData);
+  //       cellData = null;
+  //     }
+  //   }
+  //   return cellData;
+  // };
+
+  // const dropdownDataMap = {
+  //   lending_type_id: 0,
+  //   file_status_id: 0,
+  //   task_status_id: 0,
+  //   member_id: 0,
+  //   program_id: 0,
+  //   deal_type_id: 0,
+  //   lender_id: 0,
+  //   rate_type_id: 0,
+  // } as const;
 
   return (
     <>
+      {/* Satatus group */}
       <TouchableOpacity
         onPress={() => toggleRow(item.id, isExpanded[item.id])}
         activeOpacity={0.9}
@@ -149,6 +183,7 @@ const TableRow = ({
         </CustomText>
       </TouchableOpacity>
 
+      {/* Mian table */}
       {isExpanded[item.id] && (
         <View style={{ flexDirection: 'row' }}>
           <Animated.View
@@ -161,6 +196,7 @@ const TableRow = ({
               },
             ]}
           >
+            {/* File number col */}
             <View style={styles.fileNumberHeader}>
               <TouchableOpacity
                 activeOpacity={0.8}
@@ -221,12 +257,14 @@ const TableRow = ({
             scrollEventThrottle={16}
             renderItem={({ item: colItem, index: colIndex }) => {
               const isPriority = colItem.name.toLowerCase() === 'priority';
-              const isChat = colItem.name.toLowerCase() === 'chat';
               const columnWidth = colItem?.width;
+              const colKey = colItem.col_key;
+              const colType = colItem?.type;
               return (
                 <Animated.View
                   style={{ width: columnWidth, backgroundColor: '#fff' }}
                 >
+                  {/* Coulmn Header */}
                   <TouchableOpacity style={styles.columnHeader}>
                     <CustomText
                       fontSize={14}
@@ -239,7 +277,7 @@ const TableRow = ({
 
                   {item?.files.map((file, fileIndex) => {
                     const selected =
-                      selectedValues[file.id] ||
+                      selectedValues[file.id]?.[colItem.col_key] ||
                       option?.priority.find(
                         (p: any) => p.id === file?.lending_type_id,
                       );
@@ -259,17 +297,11 @@ const TableRow = ({
                           },
                         ]}
                       >
-                        {isChat ? (
-                          <TouchableOpacity activeOpacity={0.8}>
-                            <VectorIcon
-                              type="MaterialCommunityIcons"
-                              name="message-processing-outline"
-                              size={20}
-                              color={colors.black}
-                            />
-                          </TouchableOpacity>
-                        ) : isPriority ? (
+                        {colItem.col_key === 'chatcount' ? (
+                          <ChatColumn file={file}/>
+                        ) : colItem.col_key === 'lending_type_id' ? (
                           <Dropdown
+                            data={option?.priority}
                             style={[
                               styles.dropdown,
                               {
@@ -300,23 +332,199 @@ const TableRow = ({
                                 </Text>
                               </View>
                             )}
-                            data={option?.priority}
                             labelField="name"
                             valueField="id"
                             value={selected?.id}
                             placeholder="Select"
                             onChange={selected =>
-                              handleChange(file.id, selected)
+                              handleChange(file.id, colItem.col_key, selected)
                             }
                           />
-                        ) : (
+                        ) : colItem.col_key === 'get_manual_note' ? (
                           <CustomText
                             fontSize={14}
                             fontFamily="Medium"
                             style={styles.centerText}
                           >
-                            Row data
+                            Note Data
                           </CustomText>
+                        ) : colItem.name === 'DOC(OTHER)' ? (
+                          <CustomText
+                            fontSize={14}
+                            fontFamily="Medium"
+                            style={styles.centerText}
+                          >
+                            Other ocuments
+                          </CustomText>
+                        ) : colItem.name === 'DOC(MAIN)' ? (
+                          <CustomText
+                            fontSize={14}
+                            fontFamily="Medium"
+                            style={styles.centerText}
+                          >
+                            Main ocuments
+                          </CustomText>
+                        ) : colItem.col_key === 'subject_removal' ? (
+                          <CustomText
+                            fontSize={14}
+                            fontFamily="Medium"
+                            style={styles.centerText}
+                          >
+                            SR
+                          </CustomText>
+                        ) : colItem.col_key === 'closing' ? (
+                          <CustomText
+                            fontSize={14}
+                            fontFamily="Medium"
+                            style={styles.centerText}
+                          >
+                            Closing
+                          </CustomText>
+                        ) : colItem.col_key === 'next_contact' ? (
+                          <CustomText
+                            fontSize={14}
+                            fontFamily="Medium"
+                            style={styles.centerText}
+                          >
+                            Next Contect
+                          </CustomText>
+                        ) : colItem.col_key === 'file_status_id' ? (
+                          <Dropdown
+                            data={option?.filestatus}
+                            style={[
+                              styles.dropdown,
+                              {
+                                backgroundColor: selected?.color || '#252525',
+                              },
+                            ]}
+                            containerStyle={[
+                              styles.dropdownContainer,
+                              { width: scale(130) },
+                            ]}
+                            itemContainerStyle={styles.dropdownItemContainer}
+                            placeholderStyle={styles.dropdownText}
+                            selectedTextStyle={styles.dropdownText}
+                            itemTextStyle={styles.dropdownItemText}
+                            iconColor="#fff"
+                            iconStyle={{ marginRight: 10 }}
+                            renderItem={dropdownItem => (
+                              <View
+                                style={[
+                                  styles.dropdownListItem,
+                                  {
+                                    backgroundColor: dropdownItem.color,
+                                  },
+                                ]}
+                              >
+                                <Text style={styles.dropdownListItemText}>
+                                  {dropdownItem.name}
+                                </Text>
+                              </View>
+                            )}
+                            labelField="name"
+                            valueField="id"
+                            value={selected?.id}
+                            placeholder="Select"
+                            onChange={selected =>
+                              handleChange(file.id, colItem.col_key, selected)
+                            }
+                          />
+                        ) : colItem.col_key === 'task_status_id' ? (
+                          <CustomText
+                            fontSize={14}
+                            fontFamily="Medium"
+                            style={styles.centerText}
+                          >
+                            task_status_id
+                          </CustomText>
+                        ) : colItem.col_key === 'member_id' ? (
+                          <CustomText
+                            fontSize={14}
+                            fontFamily="Medium"
+                            style={styles.centerText}
+                          >
+                            member_id
+                          </CustomText>
+                        ) : colItem.col_key === 'program_id' ? (
+                          <CustomText
+                            fontSize={14}
+                            fontFamily="Medium"
+                            style={styles.centerText}
+                          >
+                            program_id
+                          </CustomText>
+                        ) : colItem.col_key === 'deal_type_id' ? (
+                          <CustomText
+                            fontSize={14}
+                            fontFamily="Medium"
+                            style={styles.centerText}
+                          >
+                            deal_type_id
+                          </CustomText>
+                        ) : colItem.col_key === 'lender_id' ? (
+                          <CustomText
+                            fontSize={14}
+                            fontFamily="Medium"
+                            style={styles.centerText}
+                          >
+                            lender_id
+                          </CustomText>
+                        ) : colItem.col_key === 'rate_type_id' ? (
+                          <CustomText
+                            fontSize={14}
+                            fontFamily="Medium"
+                            style={styles.centerText}
+                          >
+                            rate_type_id
+                          </CustomText>
+                        ) : colItem.col_key === 'property_value' ? (
+                          <CustomText
+                            fontSize={14}
+                            fontFamily="Medium"
+                            style={styles.centerText}
+                          >
+                            {
+                              file['get_account_i_d']['get_account_number'][
+                                'property_value'
+                              ] ? `$${file['get_account_i_d']['get_account_number'][
+                                'property_value'
+                              ]}` : '-'
+                            }
+                          </CustomText>
+                        ) : colItem.col_key === 'mortgage_size' ? (
+                          <CustomText
+                            fontSize={14}
+                            fontFamily="Medium"
+                            style={styles.centerText}
+                          >
+                            mortgage_size
+                          </CustomText>
+                        ) : colItem.col_key === 'maturity_date' ? (
+                          <CustomText
+                            fontSize={14}
+                            fontFamily="Medium"
+                            style={styles.centerText}
+                          >
+                            maturity_date
+                          </CustomText>
+                        ) : colItem.col_key === 'ltv' ? (
+                          <CustomText
+                            fontSize={14}
+                            fontFamily="Medium"
+                            style={styles.centerText}
+                          >
+                            Ltv
+                          </CustomText>
+                        ) : (
+                          <View>
+                          <CustomText
+                            fontSize={14}
+                            fontFamily="Medium"
+                            style={styles.centerText}
+                          >
+                            aCTION
+                          </CustomText>
+                          </View>
                         )}
                       </View>
                     );
@@ -325,180 +533,6 @@ const TableRow = ({
               );
             }}
           />
-
-          {/* <Animated.FlatList
-    data={column.slice(1)} // Use provided column data, excluding FILE NUMBERS
-    horizontal
-    showsHorizontalScrollIndicator={false}
-    keyExtractor={colItem => colItem.id.toString()} // Use id as key
-    contentContainerStyle={{ paddingRight: scale(5) }}
-    onScroll={Animated.event(
-      [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-      { useNativeDriver: false },
-    )}
-    scrollEventThrottle={16}
-    renderItem={({ item: colItem, index: colIndex }) => {
-      const isPriority = colItem.name.toLowerCase() === 'priority';
-      const isChat = colItem.name.toLowerCase() === 'chat';
-      const columnWidth = colItem.width ? scale(colItem.width) : scale(150); // Use width from column data
-
-      // Options for select columns
-      const optionsMap = {
-        lending_type_id: statusOptions, // PRIORITY
-        file_status_id: [
-          { label: 'Open', value: 'open' },
-          { label: 'Closed', value: 'closed' },
-          { label: 'In Progress', value: 'in_progress' },
-        ],
-        task_status_id: [
-          { label: 'Not Started', value: 'not_started' },
-          { label: 'In Progress', value: 'in_progress' },
-          { label: 'Completed', value: 'completed' },
-        ],
-        member_id: [
-          { label: 'Member A', value: 'member_a' },
-          { label: 'Member B', value: 'member_b' },
-        ],
-        program_id: [
-          { label: 'Program A', value: 'program_a' },
-          { label: 'Program B', value: 'program_b' },
-        ],
-        deal_type_id: [
-          { label: 'Type A', value: 'type_a' },
-          { label: 'Type B', value: 'type_b' },
-        ],
-        lender_id: [
-          { label: 'Lender A', value: 'lender_a' },
-          { label: 'Lender B', value: 'lender_b' },
-        ],
-        rate_type_id: [
-          { label: 'Fixed', value: 'fixed' },
-          { label: 'Variable', value: 'variable' },
-        ],
-      };
-
-      return (
-        <Animated.View
-          style={{ width: columnWidth, backgroundColor: '#fff' }}
-        >
-          <TouchableOpacity style={styles.columnHeader}>
-            <CustomText
-              fontSize={14}
-              fontFamily="Medium"
-              style={styles.centerText}
-            >
-              {colItem.name}
-            </CustomText>
-          </TouchableOpacity>
-
-          {item?.files.map((file, fileIndex) => {
-            // Extract cell data based on col_key
-            let cellData = colItem.col_key ? file[colItem.col_key] : null;
-
-            // Handle nested data structures
-            if (colItem.col_key === 'get_manual_note') {
-              cellData = file['get_manual_note']?.['note'] || null;
-            } else if (colItem.col_key === 'get_email_los_info') {
-              cellData = file['get_email_los_info']?.['email'] || null;
-            } else if (['subject_removal', 'closing', 'next_contact'].includes(colItem.col_key)) {
-              cellData = cellData ? new Date(cellData).toLocaleDateString() : null; // Format dates
-            }
-
-            // Map select values to labels
-            let displayValue = cellData;
-            if (colItem.type === 'select') {
-              const selectedOption = optionsMap[colItem.col_key]?.find(
-                option => option.value === cellData
-              );
-              displayValue = selectedOption?.label || cellData || 'Select';
-            }
-
-            return (
-              <View
-                key={file['id'] || fileIndex}
-                style={[
-                  styles.columnCell,
-                  {
-                    backgroundColor: isPriority
-                      ? getStatusColor(status)
-                      : '#fff',
-                  },
-                ]}
-              >
-                {isChat ? (
-                  <TouchableOpacity activeOpacity={0.8}>
-                    <VectorIcon
-                      type="MaterialCommunityIcons"
-                      name="message-processing-outline"
-                      size={20}
-                      color={colors.primary}
-                    />
-                  </TouchableOpacity>
-                ) : colItem.type === 'select' ? (
-                  <Dropdown
-                    style={[
-                      styles.dropdown,
-                      { backgroundColor: getStatusColor(status) },
-                    ]}
-                    containerStyle={[
-                      styles.dropdownContainer,
-                      { width: scale(130) },
-                    ]}
-                    itemContainerStyle={styles.dropdownItemContainer}
-                    placeholderStyle={styles.dropdownText}
-                    selectedTextStyle={styles.dropdownText}
-                    itemTextStyle={styles.dropdownItemText}
-                    iconColor="#fff"
-                    iconStyle={{ marginRight: 10 }}
-                    renderItem={dropdownItem => (
-                      <View
-                        style={[
-                          styles.dropdownListItem,
-                          {
-                            backgroundColor: getStatusColor(dropdownItem.value),
-                          },
-                        ]}
-                      >
-                        <Text style={styles.dropdownListItemText}>
-                          {dropdownItem.label}
-                        </Text>
-                      </View>
-                    )}
-                    data={optionsMap[colItem.col_key] || statusOptions}
-                    labelField="label"
-                    valueField="value"
-                    value={cellData || 'Select'}
-                    placeholder="Select"
-                    onChange={selected => {
-                      // Update state for the specific file and column
-                      setStatus(selected.value); // Replace with dynamic state update
-                    }}
-                  />
-                ) : colItem.type === 'button' && !isChat ? (
-                  <TouchableOpacity activeOpacity={0.8}>
-                    <VectorIcon
-                      type="MaterialCommunityIcons"
-                      name="dots-horizontal"
-                      size={20}
-                      color={colors.primary}
-                    />
-                  </TouchableOpacity>
-                ) : (
-                  <CustomText
-                    fontSize={14}
-                    fontFamily="Medium"
-                    style={styles.centerText}
-                  >
-                    {displayValue || '-'}
-                  </CustomText>
-                )}
-              </View>
-            );
-          })}
-        </Animated.View>
-      );
-    }}
-  /> */}
         </View>
       )}
     </>
@@ -516,7 +550,7 @@ const CustomTable = ({
   const column = columns;
   const option = options;
   console.log(column, 'column');
-  console.log(options, 'options');
+  // console.log(options, 'options');
 
   const [status, setStatus] = React.useState('working');
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -786,3 +820,4 @@ const styles = StyleSheet.create({
 });
 
 export default CustomTable;
+

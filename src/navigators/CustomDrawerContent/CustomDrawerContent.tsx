@@ -1,22 +1,18 @@
 import { DrawerContentComponentProps } from '@react-navigation/drawer';
 import { ListItem } from '@rneui/themed';
 import React, { useEffect, useState } from 'react';
-import {
-  Image,
-  ImageSourcePropType,
-  ScrollView,
-  View
-} from 'react-native';
+import { Image, ImageSourcePropType, ScrollView, View } from 'react-native';
 import { scale } from 'react-native-size-matters';
 import { useToast } from 'react-native-toast-notifications';
 import VectorIcon from '../../components/common/CustomIcons';
 import CustomText from '../../components/common/CustomText';
-import ModalComponent from '../../components/ModalComponent';
+import ModalComponent from '../../components/AuthModalComponent';
 import { IMG_NAMES } from '../../constants/constants';
 import { SCREEN_NAMES } from '../../constants/screenNames';
 import { logout } from '../../services/AuthServices';
 import { fetchMenuData } from '../../services/SideMenuServices';
 import { styles } from './DrawerStyle';
+import AuthModalComponent from '../../components/AuthModalComponent';
 
 interface ChildItem {
   id: string;
@@ -62,8 +58,8 @@ const CustomDrawerContent = ({ navigation }: DrawerContentComponentProps) => {
       // console.log(response, 'response');
     } catch (error) {
       console.log('Error fetching side menu:', error);
-    }finally{
-      setLoading(false)
+    } finally {
+      setLoading(false);
     }
   };
   useEffect(() => {
@@ -154,7 +150,7 @@ const CustomDrawerContent = ({ navigation }: DrawerContentComponentProps) => {
 
   if (loading || error) {
     return (
-      <View style={{flex:1,alignItems:'center',justifyContent:'center'}}>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
         <CustomText variant="h5" style={styles.listItemText}>
           {loading ? 'Loading...' : `Error: ${error}`}
         </CustomText>
@@ -173,7 +169,7 @@ const CustomDrawerContent = ({ navigation }: DrawerContentComponentProps) => {
         contentInsetAdjustmentBehavior="never"
       >
         <View>
-          <ModalComponent
+          <AuthModalComponent
             isLogoutModalVisible={isLogoutModalVisible}
             setLogoutModalVisible={setLogoutModalVisible}
             ModalTitle="Confirm Logout"
@@ -191,7 +187,7 @@ const CustomDrawerContent = ({ navigation }: DrawerContentComponentProps) => {
                 containerStyle={styles.listItemContainer}
                 content={
                   <>
-                    <VectorIcon  {...getIconProps(menu.icon)} />
+                    <VectorIcon {...getIconProps(menu.icon)} />
                     <ListItem.Content>
                       <ListItem.Title style={{ marginLeft: scale(16) }}>
                         <CustomText

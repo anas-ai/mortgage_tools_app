@@ -13,7 +13,7 @@ interface ModalComponentProps {
   onConfirm: () => void; // 👈 new prop to handle logout logic
 }
 
-const ModalComponent = ({
+const AuthModalComponent = ({
   isLogoutModalVisible,
   setLogoutModalVisible,
   ModalTitle,
@@ -23,7 +23,7 @@ const ModalComponent = ({
 }: ModalComponentProps) => {
   const handleConfirm = () => {
     setLogoutModalVisible(false);
-    onConfirm(); // 👈 trigger the action passed from parent
+    onConfirm(); 
   };
 
   return (
@@ -31,12 +31,8 @@ const ModalComponent = ({
       isVisible={isLogoutModalVisible}
       onBackdropPress={() => setLogoutModalVisible(false)}
       onBackButtonPress={() => setLogoutModalVisible(false)}
-      animationIn={'fadeIn'}
-      animationOut={'fadeOut'}
-      animationInTiming={300}
-      animationOutTiming={300}
-      backdropTransitionOutTiming={0}
-      useNativeDriver
+      animationInTiming={800}
+      animationOutTiming={800}
     >
       <View style={style.constainer}>
         <CustomText variant="h4" fontFamily="Medium" style={style.textStyle}>
@@ -76,7 +72,7 @@ const ModalComponent = ({
   );
 };
 
-export default ModalComponent;
+export default AuthModalComponent;
 
 const style = StyleSheet.create({
   constainer: {
