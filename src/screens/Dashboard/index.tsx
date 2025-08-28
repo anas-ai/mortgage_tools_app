@@ -36,7 +36,7 @@ const DashboardScreen = ({ navigation }: { navigation: any }) => {
           files: res.data.statusTable[m.id] || [],
         };
       });
-      console.log('mainData', mainData);
+      // console.log('mainData', mainData);
 
       setData({ ...res?.data, mainData });
       

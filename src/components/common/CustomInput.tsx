@@ -19,6 +19,8 @@ interface CustomInputWithIconProps extends TextInputProps {
   isPassword?: boolean;
   size?: number;
   width?:any
+  ref?:any,
+  height?:any
 }
 
 const CustomInput: FC<CustomInputWithIconProps> = ({
@@ -34,12 +36,14 @@ const CustomInput: FC<CustomInputWithIconProps> = ({
   isPassword = false,
   size,
   width,
+  ref,
+  height=45,
   ...rest
 }) => {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
-    <View style={[styles.container,{width:width}]}>
+    <View style={[styles.container,{width:width,height:height}]}>
       {iconName && iconType && (
         <VectorIcon
           name={iconName}
@@ -51,6 +55,7 @@ const CustomInput: FC<CustomInputWithIconProps> = ({
       )}
 
       <TextInput
+      ref={ref}
         {...rest}
         placeholder={placeholder}
         onBlur={onBlur}
