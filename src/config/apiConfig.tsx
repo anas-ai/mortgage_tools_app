@@ -22,4 +22,6 @@ export const ApiConfig = {
     `${Config.BASE_URL}/get/user/chat?log_id=${logId}&role=${role}&user_id=${userId}`,
   CHAT_LIKE_API: `${Config.BASE_URL}/like/user/chat`,
   SEND_USER_CHAT_API: `${Config.BASE_URL}/send/user/chat`,
+  DELETE_USER_CHAT_API: `${Config.BASE_URL}/delete/user/chat`,
+  CHAT_UPDATE_API: `${Config.BASE_URL}/update/user/chat`,
 };

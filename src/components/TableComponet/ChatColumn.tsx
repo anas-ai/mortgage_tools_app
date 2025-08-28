@@ -20,8 +20,8 @@ import VectorIcon from '../common/CustomIcons';
 import CustomText from '../common/CustomText';
 import CustomInput from '../common/CustomInput';
 import { Colors } from '../../constants/constants';
-import CustomButton from '../common/CustomButton';
 import { Controller, useForm } from 'react-hook-form';
+import AlertPro from 'react-native-alert-pro';
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -80,15 +80,22 @@ const ChatColumn = ({ file }: any) => {
       [key: number]: boolean;
     }>({});
 
+    const [menuVisible, setMenuVisible] = useState<number | null>(null);
+    const [editChatId, setEditChatId] = useState<number | null>(null);
+    const alertRef = useRef<AlertPro>(null);
+    const [deleteChatId, setDeleteChatId] = useState<number | null>(null);
+
     const {
       control,
       handleSubmit,
       formState: { errors },
       watch,
       reset,
+      setValue,
     } = useForm({
       defaultValues: {
         content: '',
+        updatedContent: '',
       },
     });
 
@@ -181,6 +188,64 @@ const ChatColumn = ({ file }: any) => {
       }
     };
 
+    const handleDeleteChat = async (chatId: number) => {
+      alertRef.current?.close();
+      try {
+        const res = await axiosInstance.post(ApiConfig.DELETE_USER_CHAT_API, {
+          chat_id: chatId,
+        });
+        if (res?.data.status) {
+          setChatData((prev: any[]) => prev.filter(item => item.id !== chatId));
+          console.log('Chat deleted successfully');
+        } else {
+          console.error(
+            'Failed to delete chat:',
+            res?.data?.message || 'Unknown error',
+          );
+        }
+        console.log(res, 'Delete chat response');
+      } catch (error: any) {
+        console.log(
+          'Error deleting chat:',
+          error?.response?.data || error.message,
+        );
+      } finally {
+        alertRef.current?.close();
+      }
+    };
+
+    const handleUpdateChat =
+      (chatId: number) => async (data: { updatedContent: string }) => {
+        try {
+          const res = await axiosInstance.post(ApiConfig.CHAT_UPDATE_API, {
+            chat_id: chatId,
+            content: data.updatedContent,
+            user_id: userInfo?.id,
+          });
+          if (res?.data.status) {
+            setChatData((prev: any[]) =>
+              prev.map(item =>
+                item.id === chatId
+                  ? { ...item, content: data.updatedContent }
+                  : item,
+              ),
+            );
+            setEditChatId(null); // Exit edit mode
+            reset({ updatedContent: '' }); // Reset updatedContent field
+          } else {
+            console.error(
+              'Failed to update chat:',
+              res?.data?.message || 'Unknown error',
+            );
+          }
+        } catch (error: any) {
+          console.error(
+            'Error updating chat:',
+            error?.response?.data || error.message,
+          );
+        }
+      };
+
     const renderChatItem = ({ item, index }: { item: any; index: number }) => (
       <View
         key={item?.id}
@@ -194,6 +259,7 @@ const ChatColumn = ({ file }: any) => {
           borderRadius: scale(5),
           marginTop: index === 0 ? 0 : scale(16),
           width: '100%',
+          paddingVertical: scale(8),
         }}
       >
         {/* Header row */}
@@ -203,7 +269,7 @@ const ChatColumn = ({ file }: any) => {
             alignItems: 'center',
             justifyContent: 'space-between',
             paddingHorizontal: scale(10),
-            paddingTop: scale(10),
+            paddingVertical: scale(4),
           }}
         >
           <View
@@ -218,7 +284,7 @@ const ChatColumn = ({ file }: any) => {
               style={styles.ProfileImg}
             />
             <CustomText
-              variant="h5"
+              variant="h6"
               fontFamily="Medium"
               style={{ color: colors.black, fontWeight: '500' }}
             >
@@ -243,7 +309,7 @@ const ChatColumn = ({ file }: any) => {
                 type="Ionicons"
                 name="time"
                 color={colors.graytextColor}
-                size={20}
+                size={18}
               />
               <CustomText
                 variant="h6"
@@ -253,7 +319,12 @@ const ChatColumn = ({ file }: any) => {
                 {item?.date}
               </CustomText>
             </View>
-            <TouchableOpacity activeOpacity={0.7}>
+            <TouchableOpacity
+              activeOpacity={0.6}
+              onPress={() =>
+                setMenuVisible(menuVisible === item.id ? null : item.id)
+              }
+            >
               <VectorIcon
                 type="Entypo"
                 name="dots-three-vertical"
@@ -262,28 +333,119 @@ const ChatColumn = ({ file }: any) => {
               />
             </TouchableOpacity>
           </View>
-        </View>
-        
 
+          {menuVisible === item.id && (
+            <View
+              style={{
+                position: 'absolute',
+                top: scale(40),
+                right: scale(10),
+                backgroundColor: colors.white,
+                borderRadius: scale(8),
+                paddingVertical: scale(4),
+                paddingHorizontal: scale(16),
+                shadowColor: '#000',
+                shadowOpacity: 0.2,
+                shadowRadius: 4,
+                elevation: 5,
+                borderWidth: 0.5,
+                borderColor: colors.borderGrey,
+                zIndex: 999,
+              }}
+            >
+              <TouchableOpacity
+                onPress={() => {
+                  setEditChatId(item.id);
+                  setValue('updatedContent', item.content);
+                  setMenuVisible(null);
+                }}
+              >
+                <CustomText
+                  variant="h6"
+                  fontFamily="Medium"
+                  style={{ color: colors.black, marginVertical: scale(4) }}
+                >
+                  Edit
+                </CustomText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  setDeleteChatId(item?.id);
+                  setMenuVisible(null);
+                  alertRef.current?.open();
+                }}
+              >
+                <CustomText
+                  variant="h6"
+                  fontFamily="Medium"
+                  style={{ color: colors.red, marginVertical: scale(4) }}
+                >
+                  Delete
+                </CustomText>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {editChatId === item.id ? (
+          <View style={{ marginHorizontal: scale(14) }}>
+            <Controller
+              control={control}
+              name="updatedContent"
+              render={({ field: { onChange, value } }) => (
+                <CustomInput
+                  placeholder={value}
+                  value={value}
+                  height={scale(40)}
+                  onChangeText={onChange}
+                />
+              )}
+            />
+
+            <TouchableOpacity
+              onPress={handleSubmit(handleUpdateChat(item?.id))}
+              activeOpacity={0.8}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: scale(8),
+                backgroundColor: colors.ButtonColor,
+                paddingVertical: scale(8),
+                borderRadius: scale(8),
+                marginTop: scale(8),
+              }}
+            >
+              <CustomText
+                variant="h6"
+                fontFamily="Medium"
+                style={{ color: colors.white, fontWeight: '500' }}
+              >
+                Update
+              </CustomText>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <CustomText
+            variant="h6"
+            fontFamily="Medium"
+            style={{
+              color: colors.bgBlack,
+              fontWeight: '500',
+              marginTop: scale(12),
+              paddingHorizontal: scale(10),
+            }}
+          >
+            {item?.content}
+          </CustomText>
+        )}
         {/* Content */}
-        <CustomText
-          variant="h6"
-          fontFamily="Medium"
-          style={{
-            color: colors.bgBlack,
-            fontWeight: '500',
-            marginTop: scale(12),
-            paddingHorizontal: scale(10),
-          }}
-        >
-          {item?.content}
-        </CustomText>
 
         {/* Seen */}
         <View
           style={{
             alignItems: 'flex-end',
-            marginTop: scale(8),
+            marginTop: scale(10),
             paddingRight: scale(10),
           }}
         >
@@ -293,6 +455,7 @@ const ChatColumn = ({ file }: any) => {
               flexDirection: 'row',
               alignItems: 'center',
               gap: scale(4),
+              paddingHorizontal: scale(10),
             }}
           >
             <VectorIcon
@@ -300,11 +463,16 @@ const ChatColumn = ({ file }: any) => {
               name="eye"
               color={colors.black}
               size={18}
+              style={{ marginBottom: scale(4) }}
             />
             <CustomText
               variant="h7"
               fontFamily="Medium"
-              style={{ color: colors.bgBlack, fontWeight: '500' }}
+              style={{
+                color: colors.bgBlack,
+                fontWeight: '500',
+                marginBottom: scale(4),
+              }}
             >
               SEEN
             </CustomText>
@@ -390,9 +558,10 @@ const ChatColumn = ({ file }: any) => {
         {/* Reply Input */}
         <View
           style={{
-            padding: scale(10),
             flexDirection: 'row',
             alignItems: 'center',
+            paddingHorizontal: scale(10),
+            paddingBottom: scale(6),
           }}
         >
           <View
@@ -400,6 +569,7 @@ const ChatColumn = ({ file }: any) => {
               flexDirection: 'row',
               alignItems: 'center',
               gap: scale(10),
+              marginTop: scale(10),
             }}
           >
             <Image
@@ -425,13 +595,15 @@ const ChatColumn = ({ file }: any) => {
               }}
             />
           </View>
-          <TouchableOpacity activeOpacity={0.8}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={{ marginTop: scale(16) }}
+          >
             <VectorIcon
               name="send"
               type="FontAwesome"
               color={Colors.tertiary}
-              size={20}
-              style={{ marginTop: scale(8) }}
+              size={22}
             />
           </TouchableOpacity>
         </View>
@@ -440,13 +612,62 @@ const ChatColumn = ({ file }: any) => {
 
     return (
       <>
-        <View style={styles.tabContent}>
+        <View style={[styles.tabContent]}>
           <FlatList
             data={chatData}
             renderItem={renderChatItem}
             keyExtractor={item => item?.id?.toString()}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: scale(180) }}
+            contentContainerStyle={{ paddingBottom: scale(180), flexGrow: 1 }}
+            initialNumToRender={10} // Render fewer items initially
+            windowSize={5} // Reduce the number of items rendered outside the viewport
+            updateCellsBatchingPeriod={50} // Increase batch update frequency
+            ListEmptyComponent={() => (
+              <View
+                style={{
+                  flex: 1,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <VectorIcon
+                  type="MaterialCommunityIcons"
+                  name="message-off-outline"
+                  color={colors.graytextColor}
+                  size={50}
+                  style={{
+                    backgroundColor: '#E5E7EB',
+                    padding: scale(10),
+                    borderRadius: scale(50),
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                />
+                <CustomText
+                  variant="h4"
+                  fontFamily="Medium"
+                  style={{
+                    fontWeight: 'bold',
+                    color: '#252525',
+                    marginTop: scale(10),
+                  }}
+                >
+                  No Chat Found
+                </CustomText>
+                <CustomText
+                  variant="h7"
+                  style={{
+                    alignSelf: 'center',
+                    justifyContent: 'center',
+                    marginTop: scale(6),
+                    textAlign: 'center',
+                  }}
+                >
+                  No chat activity. Please send a message to see the
+                  conversation.
+                </CustomText>
+              </View>
+            )}
           />
         </View>
 
@@ -523,6 +744,27 @@ const ChatColumn = ({ file }: any) => {
             </CustomText>
           </TouchableOpacity>
         </View>
+        <AlertPro
+          ref={alertRef}
+          onConfirm={() => {
+            if (deleteChatId !== null) {
+              handleDeleteChat(deleteChatId);
+            }
+          }}
+          onCancel={() => alertRef.current?.close()}
+          title="Delete confirmation"
+          message="Are you sure you want to delete this item?"
+          textCancel="Cancel"
+          textConfirm="Delete"
+          customStyles={{
+            buttonCancel: {
+              backgroundColor: colors.graytextColor,
+            },
+            buttonConfirm: {
+              backgroundColor: colors.red,
+            },
+          }}
+        />
       </>
     );
   };
@@ -642,5 +884,6 @@ const styles = StyleSheet.create({
   tabContent: {
     justifyContent: 'flex-start',
     padding: scale(20),
+    flex: 1,
   },
 });
