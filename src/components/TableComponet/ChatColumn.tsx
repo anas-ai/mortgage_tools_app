@@ -1,6 +1,6 @@
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
-import { Skeleton } from '@rneui/base';
-import React, { useEffect, useRef, useState } from 'react';
+import { color, Skeleton } from '@rneui/base';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -8,10 +8,11 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import Modal from 'react-native-modal';
-import { scale } from 'react-native-size-matters';
+import { scale, ScaledSheet } from 'react-native-size-matters';
 import { ApiConfig } from '../../config/apiConfig';
 import { colors } from '../../styles/Colors';
 import axiosInstance from '../../utils/axiosInstance';
@@ -22,7 +23,8 @@ import CustomInput from '../common/CustomInput';
 import { Colors } from '../../constants/constants';
 import { Controller, useForm } from 'react-hook-form';
 import AlertPro from 'react-native-alert-pro';
-
+import Config from 'react-native-config';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 const Tab = createMaterialTopTabNavigator();
 
 const ChatColumn = ({ file }: any) => {
@@ -35,6 +37,7 @@ const ChatColumn = ({ file }: any) => {
   const [partnerId, setPartnerId] = useState<any>();
 
   const inputRefs = useRef<{ [key: number]: any }>({});
+  // console.log(userInfo, 'userInfo');
 
   const fileName =
     file?.['get_account_i_d']?.['get_account_number']?.['account_number'] ||
@@ -51,6 +54,7 @@ const ChatColumn = ({ file }: any) => {
       );
 
       const chatTypes = res?.data?.chatTypes || [];
+      console.log(chatTypes, 'chatypes');
       setSharedData(chatTypes);
 
       const borrower = chatTypes.find((item: any) => item.role === 5);
@@ -84,6 +88,18 @@ const ChatColumn = ({ file }: any) => {
     const [editChatId, setEditChatId] = useState<number | null>(null);
     const alertRef = useRef<AlertPro>(null);
     const [deleteChatId, setDeleteChatId] = useState<number | null>(null);
+    const [seenUsers, setSeenUsers] = useState<any[]>([]);
+    const [showSeenPopup, setShowSeenPopup] = useState(false);
+    const [isReplyDelete, setIsReplyDelete] = useState<boolean>(false);
+    const [isUpdating, setIsUpdating] = useState<boolean>(false);
+    const [isReplying, setIsReplying] = useState<{ [key: number]: boolean }>(
+      {},
+    );
+    const [activeChatId, setActiveChatId] = useState<number | null>(null);
+    const [isSeen, setIsSeen] = useState<{ [key: number]: boolean }>({});
+    const [canAddNote, setCanAddNote] = useState<{ [key: number]: boolean }>(
+      {},
+    );
 
     const {
       control,
@@ -96,11 +112,13 @@ const ChatColumn = ({ file }: any) => {
       defaultValues: {
         content: '',
         updatedContent: '',
+        replyContent: '',
       },
     });
 
     const content = watch('content');
-    const fetchChat = async () => {
+
+    const fetchChat = useCallback(async () => {
       setLoading(true);
       try {
         const res = await axiosInstance.get(
@@ -111,17 +129,20 @@ const ChatColumn = ({ file }: any) => {
           ),
         );
         setChatData((res?.data?.chats || []).reverse());
-        // console.log(res?.data?.chats, 'chatres');
+        console.log(res?.data, 'chatdata');
+        setCanAddNote(res?.data?.canAddNote);
       } catch (error) {
         console.error('Error fetching chat:', error);
       } finally {
         setLoading(false);
       }
-    };
+    }, [file?.get_account_i_d?.account_id, role, userInfo?.id]);
 
-    useEffect(() => {
-      fetchChat();
-    }, [role]);
+    useFocusEffect(
+      useCallback(() => {
+        fetchChat();
+      }, [fetchChat]),
+    );
 
     const sendMessage = async (data: { content: string }) => {
       setLoading(true);
@@ -163,24 +184,41 @@ const ChatColumn = ({ file }: any) => {
       }
     };
 
-    const handleChatLike = async (chatId: number) => {
+    const handleChatLike = async (chatId: number, isReply: boolean = false) => {
       setLoadingChatIds(prev => ({ ...prev, [chatId]: true }));
       try {
         const res = await axiosInstance.post(ApiConfig.CHAT_LIKE_API, {
           user_id: userInfo?.id,
           chat_id: chatId,
         });
-        setChatData((prev: any[]) =>
-          prev.map(item =>
-            item.id === chatId
-              ? {
+        if (res?.data?.status) {
+          setChatData((prev: any[]) =>
+            prev.map(item => {
+              if (!isReply) {
+                return item.id === chatId
+                  ? {
+                      ...item,
+                      likes: res?.data.likes,
+                      my_like: res?.data?.my_like,
+                    }
+                  : item;
+              } else {
+                return {
                   ...item,
-                  likes: res?.data.likes,
-                  my_like: res?.data.my_like,
-                }
-              : item,
-          ),
-        );
+                  replies: item.replies?.map((reply: any) =>
+                    reply.id === chatId
+                      ? {
+                          ...reply,
+                          likes: res?.data.likes,
+                          my_like: res.data.my_like,
+                        }
+                      : reply,
+                  ),
+                };
+              }
+            }),
+          );
+        }
       } catch (error) {
         console.error('Error liking chat:', error);
       } finally {
@@ -188,14 +226,46 @@ const ChatColumn = ({ file }: any) => {
       }
     };
 
-    const handleDeleteChat = async (chatId: number) => {
+    const handleDeleteChat = async (
+      chatId: number,
+      isReply: boolean = false,
+    ) => {
+      console.log('Deleting chat with ID:', chatId, 'isReply:', isReply); // Debug log
       alertRef.current?.close();
       try {
         const res = await axiosInstance.post(ApiConfig.DELETE_USER_CHAT_API, {
           chat_id: chatId,
         });
+
+        console.log('Delete API response:', res?.data); // Debug log
+
         if (res?.data.status) {
-          setChatData((prev: any[]) => prev.filter(item => item.id !== chatId));
+          setChatData((prev: any[]) => {
+            // Create a deep copy of the previous state
+            const updatedChatData = [...prev];
+            if (!isReply) {
+              // 🔹 Delete main chat
+              const filteredData = updatedChatData.filter(
+                (chat: any) => chat.id !== chatId,
+              );
+              // console.log('Updated chatData after deletion:', filteredData); // Debug log
+              return filteredData;
+            } else {
+              // 🔹 Delete reply inside replies
+              const updatedData = updatedChatData.map((item: any) => ({
+                ...item,
+                replies:
+                  item.replies?.filter((reply: any) => reply.id !== chatId) ||
+                  [],
+              }));
+              // console.log(
+              //   'Updated chatData after reply deletion:',
+              //   updatedData,
+              // ); // Debug log
+              return updatedData;
+            }
+          });
+
           console.log('Chat deleted successfully');
         } else {
           console.error(
@@ -203,19 +273,22 @@ const ChatColumn = ({ file }: any) => {
             res?.data?.message || 'Unknown error',
           );
         }
-        console.log(res, 'Delete chat response');
       } catch (error: any) {
-        console.log(
+        console.error(
           'Error deleting chat:',
           error?.response?.data || error.message,
         );
       } finally {
         alertRef.current?.close();
+        setDeleteChatId(null);
+        setIsReplyDelete(false);
       }
     };
 
     const handleUpdateChat =
-      (chatId: number) => async (data: { updatedContent: string }) => {
+      (chatId: number, isReply: boolean = false) =>
+      async (data: { updatedContent: string }) => {
+        setIsUpdating(true);
         try {
           const res = await axiosInstance.post(ApiConfig.CHAT_UPDATE_API, {
             chat_id: chatId,
@@ -224,11 +297,22 @@ const ChatColumn = ({ file }: any) => {
           });
           if (res?.data.status) {
             setChatData((prev: any[]) =>
-              prev.map(item =>
-                item.id === chatId
-                  ? { ...item, content: data.updatedContent }
-                  : item,
-              ),
+              prev.map(item => {
+                if (!isReply) {
+                  return item.id === chatId
+                    ? { ...item, content: data.updatedContent }
+                    : item;
+                } else {
+                  return {
+                    ...item,
+                    replies: item.replies?.map((reply: any) =>
+                      reply.id === chatId
+                        ? { ...reply, content: data.updatedContent }
+                        : reply,
+                    ),
+                  };
+                }
+              }),
             );
             setEditChatId(null); // Exit edit mode
             reset({ updatedContent: '' }); // Reset updatedContent field
@@ -243,9 +327,89 @@ const ChatColumn = ({ file }: any) => {
             'Error updating chat:',
             error?.response?.data || error.message,
           );
+        } finally {
+          setIsUpdating(false);
         }
       };
 
+    const handleSeenChat = async (chatId: number) => {
+      setIsSeen(prev => ({ ...prev, [chatId]: true }));
+      try {
+        if (activeChatId === chatId && showSeenPopup) {
+          setShowSeenPopup(false);
+          setActiveChatId(null);
+          setSeenUsers([]);
+          return;
+        }
+
+        const res = await axiosInstance.get(
+          ApiConfig.SEEN_USER_CHAT_API(chatId),
+        );
+
+        console.log(res?.data, 'seen users');
+
+        if (res?.data?.success) {
+          setSeenUsers(res?.data?.data);
+          setActiveChatId(chatId);
+          setShowSeenPopup(true);
+        }
+      } catch (error) {
+        console.error('Error fetching seen users:', error);
+      } finally {
+        setIsSeen(prev => ({ ...prev, [chatId]: false }));
+      }
+    };
+
+    const handleReplyChat = async (replyId: number, replyContent: string) => {
+      if (!replyContent.trim()) return;
+      setIsReplying(prev => ({ ...prev, [replyId]: true }));
+      try {
+        const res = await axiosInstance.post(ApiConfig.SEND_USER_CHAT_API, {
+          role: role,
+          user_id: userInfo?.id,
+          log_id: file?.get_account_i_d?.account_id,
+          reply_to: replyId,
+          content: replyContent,
+        });
+
+        console.log(res?.data, 'reply');
+
+        if (res?.data?.status && res?.data?.chat) {
+          const newReply = {
+            id: res.data.chat.id,
+            user_id: res.data.chat.user_id,
+            user_name: userInfo?.name ?? 'Unknown',
+            profile_pic: userInfo?.profile_pic_url ?? '',
+            content: res.data.chat.content,
+            likes: 0,
+            my_like: false,
+            date: res.data.chat.added_on
+              ? res.data.chat.added_on.split(' ')[0]
+              : new Date().toISOString().split('T')[0],
+          };
+
+          // Update the chatData state by adding the new reply to the correct chat's replies array
+          setChatData((prev: any[]) =>
+            prev.map(item =>
+              item.id === replyId
+                ? { ...item, replies: [...(item.replies || []), newReply] }
+                : item,
+            ),
+          );
+
+          reset({ replyContent: '' }); // Clear the reply input
+        } else {
+          console.error(
+            'Failed to send reply:',
+            res?.data?.message || 'Unknown error',
+          );
+        }
+      } catch (error: any) {
+        console.error('Reply error:', error?.response?.data || error.message);
+      } finally {
+        setIsReplying(prev => ({ ...prev, [replyId]: false }));
+      }
+    };
     const renderChatItem = ({ item, index }: { item: any; index: number }) => (
       <View
         key={item?.id}
@@ -279,10 +443,38 @@ const ChatColumn = ({ file }: any) => {
               gap: scale(10),
             }}
           >
-            <Image
-              source={{ uri: item?.profile_pic }}
-              style={styles.ProfileImg}
-            />
+            {item?.profile_pic ? (
+              <Image
+                source={{ uri: item?.profile_pic }}
+                style={styles.ProfileImg}
+              />
+            ) : (
+              <View
+                style={{
+                  width: scale(30),
+                  height: scale(30),
+                  borderRadius: scale(50),
+                  backgroundColor: Colors.tertiary,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <CustomText
+                  variant="h6"
+                  fontFamily="Medium"
+                  style={{ color: colors.white, fontWeight: '600' }}
+                >
+                  {item?.user_name
+                    ? `${item.user_name.charAt(0)}${
+                        item.user_name.split(' ').length > 1
+                          ? item.user_name.split(' ').slice(-1)[0].charAt(0)
+                          : ''
+                      }`.toUpperCase()
+                    : ''}
+                </CustomText>
+              </View>
+            )}
+
             <CustomText
               variant="h6"
               fontFamily="Medium"
@@ -372,6 +564,7 @@ const ChatColumn = ({ file }: any) => {
                 onPress={() => {
                   setDeleteChatId(item?.id);
                   setMenuVisible(null);
+                  setIsReplyDelete(false);
                   alertRef.current?.open();
                 }}
               >
@@ -416,13 +609,17 @@ const ChatColumn = ({ file }: any) => {
                 marginTop: scale(8),
               }}
             >
-              <CustomText
-                variant="h6"
-                fontFamily="Medium"
-                style={{ color: colors.white, fontWeight: '500' }}
-              >
-                Update
-              </CustomText>
+              {isUpdating ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <CustomText
+                  variant="h6"
+                  fontFamily="Medium"
+                  style={{ color: colors.white, fontWeight: '500' }}
+                >
+                  Update
+                </CustomText>
+              )}
             </TouchableOpacity>
           </View>
         ) : (
@@ -450,6 +647,7 @@ const ChatColumn = ({ file }: any) => {
           }}
         >
           <TouchableOpacity
+            onPress={() => handleSeenChat(item?.id)}
             activeOpacity={0.7}
             style={{
               flexDirection: 'row',
@@ -477,6 +675,49 @@ const ChatColumn = ({ file }: any) => {
               SEEN
             </CustomText>
           </TouchableOpacity>
+
+          {showSeenPopup &&
+            activeChatId === item?.id &&
+            seenUsers.length > 0 && (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: scale(20),
+                  right: scale(10),
+                  backgroundColor: colors.white,
+                  borderRadius: scale(10),
+                  padding: scale(8),
+                  shadowColor: '#000',
+                  shadowOpacity: 0.15,
+                  shadowRadius: 6,
+                  elevation: 6,
+                  borderWidth: 0.5,
+                  borderColor: colors.borderGrey,
+                  zIndex: 999,
+                }}
+              >
+                <FlatList
+                  data={seenUsers}
+                  horizontal
+                  keyExtractor={(_, index) => index.toString()}
+                  renderItem={({ item }) => (
+                    <Image
+                      source={{
+                        uri: `${Config.IMG_BASE_URL}${item.profile_pic}`,
+                      }}
+                      style={{
+                        width: scale(30),
+                        height: scale(30),
+                        borderRadius: scale(20),
+                        marginHorizontal: 4,
+                        borderWidth: scale(0.5),
+                        borderColor: colors.borderGrey,
+                      }}
+                    />
+                  )}
+                />
+              </View>
+            )}
         </View>
 
         {/* Like & Reply */}
@@ -490,7 +731,7 @@ const ChatColumn = ({ file }: any) => {
           }}
         >
           <TouchableOpacity
-            onPress={() => handleChatLike(item?.id)}
+            onPress={() => handleChatLike(item?.id, false)}
             style={{
               flex: 1,
               alignItems: 'center',
@@ -556,6 +797,349 @@ const ChatColumn = ({ file }: any) => {
           </TouchableOpacity>
         </View>
         {/* Reply Input */}
+
+        {item.replies?.length > 0 && (
+          <View
+            style={{
+              paddingHorizontal: scale(14),
+              paddingVertical: scale(14),
+              borderBottomWidth: scale(0.5),
+              borderColor: '#cfcfcf',
+            }}
+          >
+            <FlatList
+              data={item.replies}
+              keyExtractor={reply => reply.id.toString()}
+              renderItem={({ item: reply }) => (
+                <View>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      gap: scale(10),
+                      marginBottom: scale(12),
+                    }}
+                  >
+                    <Image
+                      source={{ uri: reply.profile_pic }}
+                      style={styles.ProfileImg}
+                    />
+                    <View
+                      style={{
+                        backgroundColor: colors.lightGray,
+                        paddingVertical: scale(12),
+                        paddingHorizontal: scale(12),
+                        flex: 1,
+                        borderRadius: scale(10),
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      {editChatId === reply.id ? (
+                        <View style={{ marginHorizontal: scale(14) }}>
+                          <Controller
+                            control={control}
+                            name="updatedContent"
+                            render={({ field: { onChange, value } }) => (
+                              <CustomInput
+                                placeholder={value}
+                                value={value}
+                                height={scale(40)}
+                                onChangeText={onChange}
+                              />
+                            )}
+                          />
+
+                          <TouchableOpacity
+                            onPress={handleSubmit(
+                              handleUpdateChat(reply?.id, true),
+                            )}
+                            activeOpacity={0.8}
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: scale(8),
+                              backgroundColor: colors.ButtonColor,
+                              paddingVertical: scale(8),
+                              borderRadius: scale(8),
+                              marginTop: scale(8),
+                            }}
+                          >
+                            {isUpdating ? (
+                              <ActivityIndicator
+                                size="small"
+                                color={colors.white}
+                              />
+                            ) : (
+                              <CustomText
+                                variant="h6"
+                                fontFamily="Medium"
+                                style={{
+                                  color: colors.white,
+                                  fontWeight: '500',
+                                }}
+                              >
+                                Update
+                              </CustomText>
+                            )}
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <View>
+                          <CustomText
+                            variant="h6"
+                            fontFamily="Medium"
+                            style={{ fontWeight: '500' }}
+                          >
+                            {reply.user_name}
+                          </CustomText>
+                          <CustomText
+                            variant="h6"
+                            fontFamily="Medium"
+                            style={{
+                              fontWeight: '500',
+                              paddingTop: scale(4),
+                            }}
+                          >
+                            {reply.content}
+                          </CustomText>
+                        </View>
+                      )}
+
+                      <TouchableOpacity
+                        activeOpacity={0.6}
+                        onPress={() =>
+                          setMenuVisible(
+                            menuVisible === reply.id ? null : reply.id,
+                          )
+                        }
+                      >
+                        <VectorIcon
+                          type="Entypo"
+                          name="dots-three-vertical"
+                          color={colors.black}
+                          size={16}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      paddingHorizontal: scale(30),
+                      justifyContent: 'space-around',
+                    }}
+                  >
+                    <CustomText
+                      variant="h7"
+                      fontFamily="Medium"
+                      style={{
+                        color: colors.black,
+                      }}
+                    >
+                      {reply?.date}
+                    </CustomText>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: scale(4),
+                        paddingHorizontal: scale(10),
+                      }}
+                      onPress={() => handleSeenChat(reply.id)}
+                    >
+                      <VectorIcon
+                        type="Entypo"
+                        name="eye"
+                        color={colors.black}
+                        size={18}
+                        style={{ marginBottom: scale(4) }}
+                      />
+                    </TouchableOpacity>
+
+                    {showSeenPopup &&
+                      activeChatId === reply?.id &&
+                      seenUsers.length > 0 &&
+                      (isSeen[reply.id] ? (
+                        <View>
+                          <TouchableWithoutFeedback
+                            onPress={() => setShowSeenPopup(false)}
+                          >
+                            <View
+                              style={{
+                                position: 'absolute',
+                                top: scale(16),
+                                right: scale(100),
+                                backgroundColor: colors.white,
+                                borderRadius: scale(10),
+                                padding: scale(8),
+                                shadowColor: '#000',
+                                shadowOpacity: 0.15,
+                                shadowRadius: 6,
+                                elevation: 6,
+                                borderWidth: 0.5,
+                                borderColor: colors.borderGrey,
+                                zIndex: 999,
+                              }}
+                            >
+                              <ActivityIndicator
+                                size="small"
+                                color={Colors.tertiary}
+                              />
+                            </View>
+                          </TouchableWithoutFeedback>
+                        </View>
+                      ) : (
+                        <TouchableWithoutFeedback
+                          onPress={() => setShowSeenPopup(false)}
+                        >
+                          <View
+                            style={{
+                              position: 'absolute',
+                              top: scale(16),
+                              right: scale(100),
+                              backgroundColor: colors.white,
+                              borderRadius: scale(10),
+                              padding: scale(8),
+                              shadowColor: '#000',
+                              shadowOpacity: 0.15,
+                              shadowRadius: 6,
+                              elevation: 6,
+                              borderWidth: 0.5,
+                              borderColor: colors.borderGrey,
+                              zIndex: 999,
+                            }}
+                          >
+                            <FlatList
+                              data={seenUsers}
+                              horizontal
+                              keyExtractor={(_, index) => index.toString()}
+                              renderItem={({ item }) => (
+                                <Image
+                                  source={{
+                                    uri: `${Config.IMG_BASE_URL}${item.profile_pic}`,
+                                  }}
+                                  style={{
+                                    width: scale(30),
+                                    height: scale(30),
+                                    borderRadius: scale(20),
+                                    marginHorizontal: 4,
+                                    borderWidth: scale(0.5),
+                                    borderColor: colors.borderGrey,
+                                  }}
+                                />
+                              )}
+                            />
+                          </View>
+                        </TouchableWithoutFeedback>
+                      ))}
+
+                    <TouchableOpacity
+                      onPress={() => handleChatLike(reply.id, true)}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: scale(4),
+                      }}
+                    >
+                      {loadingChatIds[reply.id] ? (
+                        <ActivityIndicator
+                          size="small"
+                          color={Colors.tertiary}
+                        />
+                      ) : (
+                        <>
+                          <VectorIcon
+                            type="MaterialIcons"
+                            name="thumb-up"
+                            color={
+                              reply.likes
+                                ? Colors.tertiary
+                                : colors.graytextColor
+                            }
+                            size={18}
+                          />
+                          <CustomText
+                            variant="h7"
+                            fontFamily="Medium"
+                            style={{
+                              color: colors.bgBlack,
+                              fontWeight: '500',
+                              marginLeft: 6,
+                            }}
+                          >
+                            {reply.likes}
+                          </CustomText>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+
+                  {menuVisible === reply.id && (
+                    <View
+                      style={{
+                        position: 'absolute',
+                        top: scale(40),
+                        right: scale(10),
+                        backgroundColor: colors.white,
+                        borderRadius: scale(8),
+                        paddingVertical: scale(4),
+                        paddingHorizontal: scale(16),
+                        shadowColor: '#000',
+                        shadowOpacity: 0.2,
+                        shadowRadius: 4,
+                        elevation: 5,
+                        borderWidth: 0.5,
+                        borderColor: colors.borderGrey,
+                        zIndex: 999,
+                      }}
+                    >
+                      <TouchableOpacity
+                        onPress={() => {
+                          setEditChatId(reply.id);
+                          setValue('updatedContent', reply.content);
+                          setMenuVisible(null);
+                        }}
+                      >
+                        <CustomText
+                          variant="h6"
+                          fontFamily="Medium"
+                          style={{
+                            color: colors.black,
+                            marginVertical: scale(4),
+                          }}
+                        >
+                          Edit
+                        </CustomText>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => {
+                          setDeleteChatId(reply.id);
+                          setMenuVisible(null);
+                          setIsReplyDelete(true);
+                          alertRef.current?.open();
+                        }}
+                      >
+                        <CustomText
+                          variant="h6"
+                          fontFamily="Medium"
+                          style={{
+                            color: colors.red,
+                            marginVertical: scale(4),
+                          }}
+                        >
+                          Delete
+                        </CustomText>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              )}
+            />
+          </View>
+        )}
         <View
           style={{
             flexDirection: 'row',
@@ -581,47 +1165,126 @@ const ChatColumn = ({ file }: any) => {
                 marginTop: scale(10),
               }}
             />
-
-            <CustomInput
-              ref={(ref: any) => (inputRefs.current[item.id] = ref)}
-              placeholder="Write a reply..."
-              placeholderTextColor={colors.graytextColor}
-              width={'70%'}
-              style={{
-                borderColor: inputRefs.current[item.id]
-                  ? colors.primary
-                  : colors.graytextColor,
-                borderWidth: 1,
-              }}
+            <Controller
+              control={control}
+              name="replyContent" // Changed from replayContent
+              render={({ field: { onChange, onBlur, value } }) => (
+                <CustomInput
+                  ref={(ref: any) => (inputRefs.current[item.id] = ref)}
+                  placeholder="Write a reply..."
+                  placeholderTextColor={colors.graytextColor}
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  width={'70%'}
+                  style={{
+                    borderColor: inputRefs.current[item.id]
+                      ? colors.primary
+                      : colors.graytextColor,
+                    borderWidth: 1,
+                  }}
+                />
+              )}
             />
           </View>
           <TouchableOpacity
             activeOpacity={0.8}
             style={{ marginTop: scale(16) }}
+            disabled={loading || !watch('replyContent')?.trim()}
+            onPress={() => {
+              const replyContent = watch('replyContent');
+              if (replyContent && replyContent.trim()) {
+                handleReplyChat(item.id, replyContent);
+              }
+            }}
           >
-            <VectorIcon
-              name="send"
-              type="FontAwesome"
-              color={Colors.tertiary}
-              size={22}
-            />
+            {isReplying[item.id] ? (
+              <ActivityIndicator size="small" color={Colors.tertiary} />
+            ) : (
+              <VectorIcon
+                name="send"
+                type="FontAwesome"
+                color={Colors.tertiary}
+                size={22}
+              />
+            )}
           </TouchableOpacity>
         </View>
       </View>
     );
 
+    const ChatSkeleton = () => {
+      return (
+        <View
+          style={{
+            backgroundColor: colors.white,
+            elevation: 2,
+            borderRadius: scale(5),
+            marginTop: scale(16),
+            paddingVertical: scale(8),
+            paddingHorizontal: scale(10),
+          }}
+        >
+          {/* Header row */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: scale(10),
+            }}
+          >
+            <Skeleton
+              animation="wave"
+              circle
+              width={scale(30)}
+              height={scale(30)}
+            />
+            <Skeleton animation="wave" width={120} height={16} />
+          </View>
+
+          {/* Message */}
+          <Skeleton
+            animation="wave"
+            width={'90%'}
+            height={14}
+            style={{ marginTop: scale(12) }}
+          />
+          <Skeleton
+            animation="wave"
+            width={'60%'}
+            height={14}
+            style={{ marginTop: scale(6) }}
+          />
+
+          {/* Footer (like/reply) */}
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              marginTop: scale(16),
+            }}
+          >
+            <Skeleton animation="wave" width={60} height={20} />
+            <Skeleton animation="wave" width={60} height={20} />
+          </View>
+        </View>
+      );
+    };
     return (
       <>
         <View style={[styles.tabContent]}>
           <FlatList
             data={chatData}
-            renderItem={renderChatItem}
+            renderItem={({ item, index }) =>
+              loading ? <ChatSkeleton /> : renderChatItem({ item, index })
+            }
             keyExtractor={item => item?.id?.toString()}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: scale(180), flexGrow: 1 }}
             initialNumToRender={10} // Render fewer items initially
             windowSize={5} // Reduce the number of items rendered outside the viewport
             updateCellsBatchingPeriod={50} // Increase batch update frequency
+            extraData={[chatData, loading, menuVisible, editChatId, isReplying]}
             ListEmptyComponent={() => (
               <View
                 style={{
@@ -748,12 +1411,12 @@ const ChatColumn = ({ file }: any) => {
           ref={alertRef}
           onConfirm={() => {
             if (deleteChatId !== null) {
-              handleDeleteChat(deleteChatId);
+              handleDeleteChat(deleteChatId, isReplyDelete);
             }
           }}
           onCancel={() => alertRef.current?.close()}
           title="Delete confirmation"
-          message="Are you sure you want to delete this item?"
+          message="Are you sure you want to delete this chat?"
           textCancel="Cancel"
           textConfirm="Delete"
           customStyles={{
@@ -796,22 +1459,43 @@ const ChatColumn = ({ file }: any) => {
                 style={styles.ProfileImg}
               />
               <CustomText
-                variant="h6"
                 fontFamily="Medium"
+                variant="h7"
                 style={{ fontWeight: 'bold' }}
               >
-                {fileName}
+                {fileName
+                  ? fileName.length > 30
+                    ? `${fileName.slice(0, 25)}...`
+                    : fileName
+                  : ''}
               </CustomText>
             </View>
 
-            <VectorIcon
-              type="Ionicons"
-              name="close"
-              color={colors.graytextColor}
-              onPress={() => setIsChatModalOpen(false)}
-              size={scale(26)}
-              style={{ padding: scale(12) }}
-            />
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: scale(5),
+              }}
+            >
+              <TouchableOpacity>
+                <CustomText
+                  variant="h6"
+                  fontFamily="Bold"
+                  style={{ color: Colors.tertiary, fontWeight: 'bold' }}
+                >
+                  + Add User
+                </CustomText>
+              </TouchableOpacity>
+              <VectorIcon
+                type="Ionicons"
+                name="close"
+                color={colors.graytextColor}
+                onPress={() => setIsChatModalOpen(false)}
+                size={scale(26)}
+                style={{ paddingRight: scale(8) }}
+              />
+            </View>
           </View>
 
           {loading ? (

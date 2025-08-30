@@ -11,7 +11,7 @@ const fontSizes = {
   h4: 18,
   h5: 16,
   h6: 14,
-  h7: 12,
+  h7: 13,
   h8: 10,
 };
 const fontFamilyMap: Record<string, string> = {

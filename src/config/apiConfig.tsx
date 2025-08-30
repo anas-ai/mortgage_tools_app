@@ -24,4 +24,6 @@ export const ApiConfig = {
   SEND_USER_CHAT_API: `${Config.BASE_URL}/send/user/chat`,
   DELETE_USER_CHAT_API: `${Config.BASE_URL}/delete/user/chat`,
   CHAT_UPDATE_API: `${Config.BASE_URL}/update/user/chat`,
+  SEEN_USER_CHAT_API: (chatId: number) =>
+    `${Config.BASE_URL}/get/seen/users?chat_id=${chatId}`,
 };
