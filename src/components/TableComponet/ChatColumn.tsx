@@ -25,6 +25,7 @@ import { Controller, useForm } from 'react-hook-form';
 import AlertPro from 'react-native-alert-pro';
 import Config from 'react-native-config';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import CustomCheckBox from '../common/CustomCheckBox';
 const Tab = createMaterialTopTabNavigator();
 
 const ChatColumn = ({ file }: any) => {
@@ -35,6 +36,9 @@ const ChatColumn = ({ file }: any) => {
   const [borrowerId, setBorrowerId] = useState<any>();
   const [personalNoteId, setPerSonalNoteId] = useState<any>();
   const [partnerId, setPartnerId] = useState<any>();
+  const [canAddNote, setCanAddNote] = useState<{ [key: number]: boolean }>({});
+  const [addUsers, setAddUsers] = useState<any | []>([]);
+  const [addUserModalVisible, setAddUserModalVisible] = useState(false);
 
   const inputRefs = useRef<{ [key: number]: any }>({});
   // console.log(userInfo, 'userInfo');
@@ -54,7 +58,7 @@ const ChatColumn = ({ file }: any) => {
       );
 
       const chatTypes = res?.data?.chatTypes || [];
-      console.log(chatTypes, 'chatypes');
+      // console.log(chatTypes, 'chatypes');
       setSharedData(chatTypes);
 
       const borrower = chatTypes.find((item: any) => item.role === 5);
@@ -73,9 +77,23 @@ const ChatColumn = ({ file }: any) => {
 
   useEffect(() => {
     if (isChatModalOpen) {
-      fetchSharedUsers();
+      // fetchSharedUsers();
     }
   }, [isChatModalOpen]);
+
+  const handleAddUsers = async () => {
+    setAddUserModalVisible(true);
+
+    try {
+      const res = await axiosInstance.get(
+        ApiConfig.FILE_USERS_API(file.get_account_i_d.account_id),
+      );
+      console.log(res?.data?.members, 'File users');
+      setAddUsers(res?.data?.members || []);
+    } catch (error: any) {
+      console.log(error.message, 'Error fetching file users');
+    }
+  };
 
   const TabContent = ({ role }: { role: number; label: string }) => {
     const [chatData, setChatData] = useState<any[] | any>([]);
@@ -97,9 +115,6 @@ const ChatColumn = ({ file }: any) => {
     );
     const [activeChatId, setActiveChatId] = useState<number | null>(null);
     const [isSeen, setIsSeen] = useState<{ [key: number]: boolean }>({});
-    const [canAddNote, setCanAddNote] = useState<{ [key: number]: boolean }>(
-      {},
-    );
 
     const {
       control,
@@ -129,7 +144,7 @@ const ChatColumn = ({ file }: any) => {
           ),
         );
         setChatData((res?.data?.chats || []).reverse());
-        console.log(res?.data, 'chatdata');
+        // console.log(res?.data, 'chatdata');
         setCanAddNote(res?.data?.canAddNote);
       } catch (error) {
         console.error('Error fetching chat:', error);
@@ -1471,14 +1486,8 @@ const ChatColumn = ({ file }: any) => {
               </CustomText>
             </View>
 
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: scale(5),
-              }}
-            >
-              <TouchableOpacity>
+            {canAddNote && (
+              <TouchableOpacity onPress={handleAddUsers}>
                 <CustomText
                   variant="h6"
                   fontFamily="Bold"
@@ -1487,15 +1496,16 @@ const ChatColumn = ({ file }: any) => {
                   + Add User
                 </CustomText>
               </TouchableOpacity>
-              <VectorIcon
-                type="Ionicons"
-                name="close"
-                color={colors.graytextColor}
-                onPress={() => setIsChatModalOpen(false)}
-                size={scale(26)}
-                style={{ paddingRight: scale(8) }}
-              />
-            </View>
+            )}
+
+            <VectorIcon
+              type="Ionicons"
+              name="close"
+              color={colors.graytextColor}
+              onPress={() => setIsChatModalOpen(false)}
+              size={scale(26)}
+              style={{ paddingRight: scale(12) }}
+            />
           </View>
 
           {loading ? (
@@ -1532,6 +1542,120 @@ const ChatColumn = ({ file }: any) => {
           )}
         </View>
       </Modal>
+
+      {canAddNote && (
+        <Modal
+          style={{ flex: 1, alignItems: 'center', margin: 0 }}
+          isVisible={addUserModalVisible}
+          onBackdropPress={() => setAddUserModalVisible(false)}
+        >
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: colors.lightGray,
+              width: '100%',
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: colors.white,
+                padding: scale(10),
+                borderBottomColor: colors.black,
+                borderBottomWidth: 0.1,
+                elevation: 3,
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <CustomText
+                variant="h5"
+                fontFamily="Medium"
+                style={{ color: colors.bgBlack1, fontWeight: 'bold' }}
+              >
+                Allow To Personnal Note
+              </CustomText>
+
+              <VectorIcon
+                type="Ionicons"
+                name="close"
+                color={colors.graytextColor}
+                onPress={() => setAddUserModalVisible(false)}
+                size={scale(26)}
+              />
+            </View>
+            <View style={{ justifyContent: 'center', padding: scale(20) }}>
+              <View
+                style={{
+                  backgroundColor: colors.white,
+                  paddingHorizontal: scale(10),
+                  borderRadius: scale(8),
+                  justifyContent: 'center',
+                  paddingVertical: scale(10),
+                }}
+              >
+                {addUsers?.map((user: any) => (
+                  <View
+                    key={user.id}
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: scale(10),
+                      }}
+                    >
+                      {user?.profile ? (
+                        <Image
+                          source={{ uri: user.profile }}
+                          style={{
+                            width: scale(30),
+                            height: scale(30),
+                            borderRadius: scale(20),
+                          }}
+                        />
+                      ) : (
+                        <View
+                          style={{
+                            width: scale(30),
+                            height: scale(30),
+                            backgroundColor: Colors.tertiary,
+                            borderRadius: scale(20),
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <CustomText
+                            variant="h7"
+                            fontFamily="Regular"
+                            style={{ color: colors.white, fontWeight: 'bold' }}
+                          >
+                            {user?.name?.charAt(0)?.toUpperCase()}
+                          </CustomText>
+                        </View>
+                      )}
+
+                      <CustomText
+                        variant="h6"
+                        style={{ color: colors.bgBlack }}
+                      >
+                        {user.name}
+                      </CustomText>
+                    </View>
+                    <CustomCheckBox />
+                  </View>
+                ))}
+              </View>
+            </View>
+            
+          </View>
+        </Modal>
+      )}
     </View>
   );
 };

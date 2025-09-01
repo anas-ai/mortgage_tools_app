@@ -26,4 +26,8 @@ export const ApiConfig = {
   CHAT_UPDATE_API: `${Config.BASE_URL}/update/user/chat`,
   SEEN_USER_CHAT_API: (chatId: number) =>
     `${Config.BASE_URL}/get/seen/users?chat_id=${chatId}`,
+FILE_USERS_API: (logId: number) =>
+    `${Config.BASE_URL}/get/file/users?log_id=${logId}`,
+// ADD_ALLOW_USERS_API:
+
 };

@@ -12,7 +12,7 @@ import { Colors } from '../../constants/constants';
 import { colors } from '../../styles/Colors';
 
 interface CustomCheckBoxProps {
-  title: string;
+  title?: string;
   fontSize?: number;
   color?: string;
   containerStyle?: StyleProp<ViewStyle>; // <- renamed here
