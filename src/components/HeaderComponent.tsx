@@ -31,6 +31,8 @@ const HeaderComponent = ({
         height: scale(60) + statusBarHeight,
         width: '100%',
         elevation: scale(5),
+        borderBottomColor:colors.white,
+        borderBottomWidth:.2
       }}
     >
       <StatusBar

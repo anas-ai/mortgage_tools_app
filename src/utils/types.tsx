@@ -18,10 +18,10 @@ interface CustomInpurProps {
 }
 
 interface CustomButtonProps {
-  title: string;
+  title?: string;
   loading?: boolean;
   disabled?: boolean;
-  onPress: () => void;
+  onPress?: () => void;
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
   backgroundColor?: string;

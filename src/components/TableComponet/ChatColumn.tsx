@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  KeyboardAvoidingView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -26,6 +27,8 @@ import AlertPro from 'react-native-alert-pro';
 import Config from 'react-native-config';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import CustomCheckBox from '../common/CustomCheckBox';
+import CustomButton from '../common/CustomButton';
+import { useToast } from 'react-native-toast-notifications';
 const Tab = createMaterialTopTabNavigator();
 
 const ChatColumn = ({ file }: any) => {
@@ -39,7 +42,9 @@ const ChatColumn = ({ file }: any) => {
   const [canAddNote, setCanAddNote] = useState<{ [key: number]: boolean }>({});
   const [addUsers, setAddUsers] = useState<any | []>([]);
   const [addUserModalVisible, setAddUserModalVisible] = useState(false);
-
+  const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
+  const [SkeletonLoading,setSkeletonLoading] = useState<{ [key: number]: boolean }>({});
+  const toast = useToast();
   const inputRefs = useRef<{ [key: number]: any }>({});
   // console.log(userInfo, 'userInfo');
 
@@ -77,7 +82,7 @@ const ChatColumn = ({ file }: any) => {
 
   useEffect(() => {
     if (isChatModalOpen) {
-      // fetchSharedUsers();
+      fetchSharedUsers();
     }
   }, [isChatModalOpen]);
 
@@ -89,9 +94,38 @@ const ChatColumn = ({ file }: any) => {
         ApiConfig.FILE_USERS_API(file.get_account_i_d.account_id),
       );
       console.log(res?.data?.members, 'File users');
-      setAddUsers(res?.data?.members || []);
+      const members = res?.data?.members || [];
+      setAddUsers(members);
+      const allowedIds = members
+        .filter((u: any) => u.allowed)
+        .map((u: any) => u.id);
+      setSelectedUsers(allowedIds);
     } catch (error: any) {
       console.log(error.message, 'Error fetching file users');
+    }
+  };
+
+  const toggleUserSeletion = (userId: number) => {
+    setSelectedUsers(prev =>
+      prev.includes(userId)
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId],
+    );
+  };
+
+  const handleAddAllowUser = async () => {
+    try {
+      const res = await axiosInstance.post(ApiConfig.ADD_ALLOW_USERS_API, {
+        log_id: file.get_account_i_d.account_id,
+        allowusernote: selectedUsers,
+      });
+      console.log(res?.data, 'add Allow User Response:');
+
+      setAddUserModalVisible(false);
+
+      setSelectedUsers([]);
+    } catch (error: any) {
+      console.log(error.message, 'Error adding allow user');
     }
   };
 
@@ -1289,74 +1323,78 @@ const ChatColumn = ({ file }: any) => {
       <>
         <View style={[styles.tabContent]}>
           <FlatList
-            data={chatData}
+            data={loading ? Array(3).fill({}) : chatData} 
             renderItem={({ item, index }) =>
               loading ? <ChatSkeleton /> : renderChatItem({ item, index })
             }
-            keyExtractor={item => item?.id?.toString()}
+            keyExtractor={(item, index) =>
+              item?.id?.toString() || index.toString()
+            }
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: scale(180), flexGrow: 1 }}
-            initialNumToRender={10} // Render fewer items initially
-            windowSize={5} // Reduce the number of items rendered outside the viewport
-            updateCellsBatchingPeriod={50} // Increase batch update frequency
+            initialNumToRender={10}
+            windowSize={5}
+            updateCellsBatchingPeriod={50}
             extraData={[chatData, loading, menuVisible, editChatId, isReplying]}
-            ListEmptyComponent={() => (
-              <View
-                style={{
-                  flex: 1,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <VectorIcon
-                  type="MaterialCommunityIcons"
-                  name="message-off-outline"
-                  color={colors.graytextColor}
-                  size={50}
+            ListEmptyComponent={() =>
+              !loading && (
+                <View
                   style={{
-                    backgroundColor: '#E5E7EB',
-                    padding: scale(10),
-                    borderRadius: scale(50),
+                    flex: 1,
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
-                />
-                <CustomText
-                  variant="h4"
-                  fontFamily="Medium"
-                  style={{
-                    fontWeight: 'bold',
-                    color: '#252525',
-                    marginTop: scale(10),
-                  }}
                 >
-                  No Chat Found
-                </CustomText>
-                <CustomText
-                  variant="h7"
-                  style={{
-                    alignSelf: 'center',
-                    justifyContent: 'center',
-                    marginTop: scale(6),
-                    textAlign: 'center',
-                  }}
-                >
-                  No chat activity. Please send a message to see the
-                  conversation.
-                </CustomText>
-              </View>
-            )}
+                  <VectorIcon
+                    type="MaterialCommunityIcons"
+                    name="message-off-outline"
+                    color={colors.graytextColor}
+                    size={50}
+                    style={{
+                      backgroundColor: '#E5E7EB',
+                      padding: scale(10),
+                      borderRadius: scale(50),
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  />
+                  <CustomText
+                    variant="h4"
+                    fontFamily="Medium"
+                    style={{
+                      fontWeight: 'bold',
+                      color: '#252525',
+                      marginTop: scale(10),
+                    }}
+                  >
+                    No Chat Found
+                  </CustomText>
+                  <CustomText
+                    variant="h7"
+                    style={{
+                      alignSelf: 'center',
+                      justifyContent: 'center',
+                      marginTop: scale(6),
+                      textAlign: 'center',
+                    }}
+                  >
+                    No chat activity. Please send a message to see the
+                    conversation.
+                  </CustomText>
+                </View>
+              )
+            }
           />
         </View>
 
-        <View
+        <KeyboardAvoidingView
           style={{
             backgroundColor: colors.white,
             position: 'absolute',
             bottom: 0,
             left: 0,
             right: 0,
-            paddingVertical: scale(40),
+            paddingVertical: scale(20),
             paddingHorizontal: scale(20),
             borderTopLeftRadius: scale(12),
             borderTopRightRadius: scale(12),
@@ -1421,7 +1459,7 @@ const ChatColumn = ({ file }: any) => {
               Send
             </CustomText>
           </TouchableOpacity>
-        </View>
+        </KeyboardAvoidingView>
         <AlertPro
           ref={alertRef}
           onConfirm={() => {
@@ -1594,65 +1632,118 @@ const ChatColumn = ({ file }: any) => {
                   paddingVertical: scale(10),
                 }}
               >
-                {addUsers?.map((user: any) => (
-                  <View
-                    key={user.id}
-                    style={{
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                    }}
-                  >
+                <FlatList
+                  data={addUsers}
+                  keyExtractor={item => item.id.toString()}
+                  renderItem={({ item: user }) => (
                     <View
                       style={{
                         flexDirection: 'row',
+                        justifyContent: 'space-between',
                         alignItems: 'center',
-                        gap: scale(10),
+                        paddingVertical: scale(8),
                       }}
                     >
-                      {user?.profile ? (
-                        <Image
-                          source={{ uri: user.profile }}
-                          style={{
-                            width: scale(30),
-                            height: scale(30),
-                            borderRadius: scale(20),
-                          }}
-                        />
-                      ) : (
-                        <View
-                          style={{
-                            width: scale(30),
-                            height: scale(30),
-                            backgroundColor: Colors.tertiary,
-                            borderRadius: scale(20),
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          <CustomText
-                            variant="h7"
-                            fontFamily="Regular"
-                            style={{ color: colors.white, fontWeight: 'bold' }}
-                          >
-                            {user?.name?.charAt(0)?.toUpperCase()}
-                          </CustomText>
-                        </View>
-                      )}
-
-                      <CustomText
-                        variant="h6"
-                        style={{ color: colors.bgBlack }}
+                      {/* Left side: Image + Name */}
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: scale(10),
+                        }}
                       >
-                        {user.name}
-                      </CustomText>
+                        {user?.profile ? (
+                          <Image
+                            source={{ uri: user.profile }}
+                            style={{
+                              width: scale(30),
+                              height: scale(30),
+                              borderRadius: scale(20),
+                            }}
+                          />
+                        ) : (
+                          <View
+                            style={{
+                              width: scale(30),
+                              height: scale(30),
+                              backgroundColor: Colors.tertiary,
+                              borderRadius: scale(20),
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            <CustomText
+                              variant="h7"
+                              fontFamily="Regular"
+                              style={{
+                                color: colors.white,
+                                fontWeight: 'bold',
+                              }}
+                            >
+                              {user?.name?.charAt(0)?.toUpperCase()}
+                            </CustomText>
+                          </View>
+                        )}
+
+                        <CustomText
+                          variant="h6"
+                          style={{ color: colors.bgBlack }}
+                        >
+                          {user.name}
+                        </CustomText>
+                      </View>
+
+                      {/* Right side: Checkbox */}
+                      <CustomCheckBox
+                        isChecked={selectedUsers.includes(user.id)}
+                        onPress={() => toggleUserSeletion(user.id)}
+                      />
                     </View>
-                    <CustomCheckBox />
-                  </View>
-                ))}
+                  )}
+                />
               </View>
             </View>
-            
+
+            <View
+              style={{
+                backgroundColor: colors.white,
+                height: scale(80),
+                position: 'absolute',
+                bottom: 0,
+                width: '100%',
+                elevation: 10,
+                padding: scale(20),
+                justifyContent: 'center',
+                alignItems: 'flex-end',
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: scale(25),
+                }}
+              >
+                <TouchableOpacity activeOpacity={0.8}>
+                  <CustomText
+                    variant="h7"
+                    fontSize={15}
+                    fontFamily="Medium"
+                    style={{ color: Colors.tertiary }}
+                  >
+                    Cancel
+                  </CustomText>
+                </TouchableOpacity>
+                <CustomButton
+                  title="Add User"
+                  backgroundColor={Colors.tertiary}
+                  fontColor="#fff"
+                  textStyle={{ fontSize: scale(14) }}
+                  style={{ width: '30%' }}
+                  onPress={handleAddAllowUser}
+                />
+              </View>
+            </View>
           </View>
         </Modal>
       )}

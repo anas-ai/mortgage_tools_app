@@ -10,8 +10,8 @@ import AccountLog from '../screens/DrawerScreens/FileManagement/AccountLog';
 import BirthdayEmailTemplate from '../screens/DrawerScreens/FileManagement/BirthdayEmailTemplate';
 import BorrowersLog from '../screens/DrawerScreens/FileManagement/BorrowersLog';
 import EventEmailTemplates from '../screens/DrawerScreens/FileManagement/EventEmailTemplates';
+import AddAccountScreen from '../screens/DrawerScreens/FileManagement/Generate';
 import GenerateIframe from '../screens/DrawerScreens/FileManagement/GenerateIframe';
-import Genrelscreen from '../screens/DrawerScreens/FileManagement/Genreal';
 import Partners from '../screens/DrawerScreens/FileManagement/Partners';
 import Renewals from '../screens/DrawerScreens/FileManagement/Renewals';
 import FileNotification from '../screens/DrawerScreens/FileManagement/settingScreen/FileNotification';
@@ -28,7 +28,7 @@ export const AuthStack = [
 
 export const HomeStack = [
   // Remove DASHBOARD_SCREEN from HomeStack since it’s handled by TabNavigator
-  { name: FILE_MANAGEMENT_SCREEN_NAMES.ADD_ACCOUNT, component: Genrelscreen },
+  { name: FILE_MANAGEMENT_SCREEN_NAMES.ADD_ACCOUNT, component: AddAccountScreen },
   { name: FILE_MANAGEMENT_SCREEN_NAMES.ACCOUNT_LOG, component: AccountLog },
   { name: FILE_MANAGEMENT_SCREEN_NAMES.BORROWERS_LOGS, component: BorrowersLog },
   { name: FILE_MANAGEMENT_SCREEN_NAMES.PARTNERS, component: Partners },
@@ -40,6 +40,7 @@ export const HomeStack = [
   { name: FILE_MANAGEMENT_SCREEN_NAMES.GENERATE_IFRAME, component: GenerateIframe },
   { name: FILE_MANAGEMENT_SCREEN_NAMES.SHARABLE_USERS, component: SharableUsers },
   { name: FILE_MANAGEMENT_SETTINGS__SCREEN_NAMES.FILE_NOTIFICAION, component: FileNotification },
+ 
 ];
 
 export const TabStack = [

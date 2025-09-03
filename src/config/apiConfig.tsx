@@ -26,8 +26,9 @@ export const ApiConfig = {
   CHAT_UPDATE_API: `${Config.BASE_URL}/update/user/chat`,
   SEEN_USER_CHAT_API: (chatId: number) =>
     `${Config.BASE_URL}/get/seen/users?chat_id=${chatId}`,
-FILE_USERS_API: (logId: number) =>
+  FILE_USERS_API: (logId: number) =>
     `${Config.BASE_URL}/get/file/users?log_id=${logId}`,
-// ADD_ALLOW_USERS_API:
-
+  ADD_ALLOW_USERS_API: `${Config.BASE_URL}/add/allow/user`,
+  FETCH_BORROWERS_API: (userId: number, sharedId = 0, query: string) =>
+    `${Config.BASE_URL}/autocomplete-search?user_id=${userId}&shareuserid=${sharedId}&query=${query}`,
 };

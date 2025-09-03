@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   TouchableOpacity,
@@ -7,7 +7,7 @@ import {
   StyleProp,
   ViewStyle,
 } from 'react-native';
-import VectorIcon from './CustomIcons'; // AntDesign icon assumed
+import VectorIcon from './CustomIcons';
 import { Colors } from '../../constants/constants';
 import { colors } from '../../styles/Colors';
 
@@ -15,7 +15,9 @@ interface CustomCheckBoxProps {
   title?: string;
   fontSize?: number;
   color?: string;
-  containerStyle?: StyleProp<ViewStyle>; // <- renamed here
+  containerStyle?: StyleProp<ViewStyle>;
+  isChecked?: boolean; // <- controlled
+  onPress?: () => void; // <- callback
 }
 
 const CustomCheckBox = ({
@@ -23,16 +25,17 @@ const CustomCheckBox = ({
   fontSize = 16,
   color,
   containerStyle,
+  isChecked,
+  onPress,
 }: CustomCheckBoxProps) => {
-  const [checked, setChecked] = useState(false);
-
   return (
     <View style={[styles.container, containerStyle]}>
       <TouchableOpacity
-        style={[styles.checkboxBase, checked && styles.checkboxChecked]}
-        onPress={() => setChecked(!checked)}
+        style={[styles.checkboxBase, isChecked && styles.checkboxChecked]}
+        onPress={onPress}
+        activeOpacity={0.8}
       >
-        {checked && (
+        {isChecked && (
           <VectorIcon
             type="AntDesign"
             name="check"
@@ -41,9 +44,11 @@ const CustomCheckBox = ({
           />
         )}
       </TouchableOpacity>
-      <Text style={{ fontSize: fontSize, color: color, fontWeight: '600' }}>
-        {title}
-      </Text>
+      {title ? (
+        <Text style={{ fontSize: fontSize, color: color, fontWeight: '600' }}>
+          {title}
+        </Text>
+      ) : null}
     </View>
   );
 };

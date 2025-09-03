@@ -5,8 +5,9 @@ import {
   StyleSheet,
   TextInputProps,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
-import { moderateScale } from 'react-native-size-matters';
+import { moderateScale, scale } from 'react-native-size-matters';
 import VectorIcon, { IconType } from './CustomIcons';
 import { Colors } from '../../constants/constants';
 import { colors } from '../../styles/Colors';
@@ -18,9 +19,10 @@ interface CustomInputWithIconProps extends TextInputProps {
   iconSize?: number;
   isPassword?: boolean;
   size?: number;
-  width?:any
-  ref?:any,
-  height?:any
+  width?: any;
+  ref?: any;
+  height?: any;
+  loading?: boolean;
 }
 
 const CustomInput: FC<CustomInputWithIconProps> = ({
@@ -37,13 +39,14 @@ const CustomInput: FC<CustomInputWithIconProps> = ({
   size,
   width,
   ref,
-  height=45,
+  height = 45,
+  loading = false,
   ...rest
 }) => {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
-    <View style={[styles.container,{width:width,height:height}]}>
+    <View style={[styles.container, { width: width, height: height }]}>
       {iconName && iconType && (
         <VectorIcon
           name={iconName}
@@ -55,7 +58,7 @@ const CustomInput: FC<CustomInputWithIconProps> = ({
       )}
 
       <TextInput
-      ref={ref}
+        ref={ref}
         {...rest}
         placeholder={placeholder}
         onBlur={onBlur}
@@ -67,19 +70,29 @@ const CustomInput: FC<CustomInputWithIconProps> = ({
         style={[styles.input, isPassword && { width: '78%' }]}
       />
 
-      {isPassword && (
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => setShowPassword(prev => !prev)}
-        >
-          <VectorIcon
-            name={showPassword ? 'eye' : 'eye-off'}
-            type="Feather"
-            size={size}
-            color={colors.textSecondary}
-            style={styles.rightIcon}
+      {loading ? (
+        <View style={{}}>
+          <ActivityIndicator
+            size="small"
+            color={Colors.tertiary}
+            style={{ marginRight: scale(6) }}
           />
-        </TouchableOpacity>
+        </View>
+      ) : (
+        isPassword && (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setShowPassword(prev => !prev)}
+          >
+            <VectorIcon
+              name={showPassword ? 'eye' : 'eye-off'}
+              type="Feather"
+              size={size}
+              color={colors.textSecondary}
+              style={styles.rightIcon}
+            />
+          </TouchableOpacity>
+        )
       )}
     </View>
   );
@@ -100,6 +113,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   input: {
+    flex: 1,
     fontSize: moderateScale(14),
     fontFamily: 'Regular',
     height: 45,

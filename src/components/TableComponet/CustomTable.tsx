@@ -18,6 +18,7 @@ import { colors } from '../../styles/Colors';
 import { GetObjectFromStorage } from '../../utils/MmkvStorageHelper';
 import debounce from 'lodash.debounce';
 import ChatColumn from './ChatColumn';
+import FileNumbersColumn from './FileNumbersColumn';
 
 export interface FileStatus {
   id: number;
@@ -149,6 +150,8 @@ const TableRow = ({
   //   rate_type_id: 0,
   // } as const;
 
+  const [showModal, setShowModal] = useState(false);
+
   return (
     <>
       {/* Satatus group */}
@@ -208,6 +211,8 @@ const TableRow = ({
               </TouchableOpacity>
             </View>
 
+            
+
             {!item?.files ? (
               <TouchableOpacity
                 activeOpacity={0.8}
@@ -227,6 +232,7 @@ const TableRow = ({
                   key={file['id'] || index}
                   activeOpacity={0.8}
                   style={styles.fileNumberCell}
+                  onPress={() => setShowModal(file)}
                 >
                   <CustomText
                     fontSize={14}
@@ -237,12 +243,18 @@ const TableRow = ({
                       file['get_account_i_d']['get_account_number'][
                         'account_number'
                       ]
+                      
                     }
                   </CustomText>
                 </TouchableOpacity>
               ))
             )}
           </Animated.View>
+          <FileNumbersColumn
+              visible={showModal}
+              onClose={() => setShowModal(false)}
+              item ={showModal}
+            />
 
           <Animated.FlatList
             data={column.slice(1)}
@@ -298,7 +310,7 @@ const TableRow = ({
                         ]}
                       >
                         {colItem.col_key === 'chatcount' ? (
-                          <ChatColumn file={file}/>
+                          <ChatColumn file={file} />
                         ) : colItem.col_key === 'lending_type_id' ? (
                           <Dropdown
                             data={option?.priority}
@@ -483,13 +495,11 @@ const TableRow = ({
                             fontFamily="Medium"
                             style={styles.centerText}
                           >
-                            {
-                              file['get_account_i_d']['get_account_number'][
-                                'property_value'
-                              ] ? `$${file['get_account_i_d']['get_account_number'][
-                                'property_value'
-                              ]}` : '-'
-                            }
+                            {file['get_account_i_d']['get_account_number'][
+                              'property_value'
+                            ]
+                              ? `$${file['get_account_i_d']['get_account_number']['property_value']}`
+                              : '-'}
                           </CustomText>
                         ) : colItem.col_key === 'mortgage_size' ? (
                           <CustomText
@@ -517,13 +527,13 @@ const TableRow = ({
                           </CustomText>
                         ) : (
                           <View>
-                          <CustomText
-                            fontSize={14}
-                            fontFamily="Medium"
-                            style={styles.centerText}
-                          >
-                            aCTION
-                          </CustomText>
+                            <CustomText
+                              fontSize={14}
+                              fontFamily="Medium"
+                              style={styles.centerText}
+                            >
+                              aCTION
+                            </CustomText>
                           </View>
                         )}
                       </View>
@@ -820,4 +830,3 @@ const styles = StyleSheet.create({
 });
 
 export default CustomTable;
-
