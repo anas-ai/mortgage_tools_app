@@ -68,6 +68,7 @@ const ForgotPasswordForm = ({ onBack }: ForgotPasswordFormProps) => {
           >
             Reset Password
           </CustomText>
+<View style={{paddingVertical:scale(12)}}>
 
           <Controller
             control={control}
@@ -90,6 +91,9 @@ const ForgotPasswordForm = ({ onBack }: ForgotPasswordFormProps) => {
               {errors.username.message}
             </CustomText>
           )}
+
+</View>
+
 
           <CustomButton
             title="Send Password Reset Link"

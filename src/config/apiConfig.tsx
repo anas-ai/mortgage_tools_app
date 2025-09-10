@@ -29,6 +29,9 @@ export const ApiConfig = {
   FILE_USERS_API: (logId: number) =>
     `${Config.BASE_URL}/get/file/users?log_id=${logId}`,
   ADD_ALLOW_USERS_API: `${Config.BASE_URL}/add/allow/user`,
-  FETCH_BORROWERS_API: (userId: number, sharedId = 0, query: string) =>
+  AUTOCOMPLETE_SEARCH_API: (userId: number, sharedId = 0, query: string) =>
     `${Config.BASE_URL}/autocomplete-search?user_id=${userId}&shareuserid=${sharedId}&query=${query}`,
+  // borrowinfo
+  BORROW_INFO_API: (userId: number, sharedId = 0, fileId: number) =>
+    `${Config.BASE_URL}/dasboard/fetch/borrowinfo?user_id=${userId}&shareuserid=${sharedId}&file_id=${fileId}`,
 };

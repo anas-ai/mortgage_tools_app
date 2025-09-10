@@ -81,6 +81,9 @@ const LoginFrom = ({
           >
             Sign In
           </CustomText>
+
+          <View style={{paddingVertical:scale(12)}}>
+
           <Controller
             control={control}
             name="username"
@@ -101,6 +104,7 @@ const LoginFrom = ({
               {errors.username.message}
             </CustomText>
           )}
+          </View>
 
           <Controller
             control={control}

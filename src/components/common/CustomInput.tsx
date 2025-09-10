@@ -11,6 +11,9 @@ import { moderateScale, scale } from 'react-native-size-matters';
 import VectorIcon, { IconType } from './CustomIcons';
 import { Colors } from '../../constants/constants';
 import { colors } from '../../styles/Colors';
+import CustomText from './CustomText';
+
+import { DimensionValue } from 'react-native';
 
 interface CustomInputWithIconProps extends TextInputProps {
   iconName?: string;
@@ -19,10 +22,17 @@ interface CustomInputWithIconProps extends TextInputProps {
   iconSize?: number;
   isPassword?: boolean;
   size?: number;
-  width?: any;
+  width?: DimensionValue; // <-- FIXED
   ref?: any;
-  height?: any;
+  height?: number;
   loading?: boolean;
+  label?: string;
+  lablePaddingTop?: number;
+  lablePaddingVertical?: number;
+  required?: boolean;
+  keyboardType?: any;
+  editable?: boolean;
+  lableFontSize?: number;
 }
 
 const CustomInput: FC<CustomInputWithIconProps> = ({
@@ -37,63 +47,98 @@ const CustomInput: FC<CustomInputWithIconProps> = ({
   iconSize = 20,
   isPassword = false,
   size,
-  width,
+  width = '100%',
   ref,
   height = 45,
+  label,
   loading = false,
+  lablePaddingTop = 14,
+  lablePaddingVertical,
+  required,
+  keyboardType,
+  editable = true,
+  lableFontSize = 13,
   ...rest
 }) => {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
-    <View style={[styles.container, { width: width, height: height }]}>
-      {iconName && iconType && (
-        <VectorIcon
-          name={iconName}
-          type={iconType}
-          size={iconSize}
-          color={iconColor}
-          style={styles.leftIcon}
-        />
+    <View style={{ width }}>
+      {label && (
+        <View
+          style={[
+            styles.labelWrapper,
+            {
+              paddingTop: scale(lablePaddingTop),
+              paddingVertical: lablePaddingVertical,
+            },
+          ]}
+        >
+          <CustomText
+            variant="h6"
+            fontFamily="Bold"
+            fontSize={lableFontSize}
+            style={styles.label}
+          >
+            {label}
+            {required && (
+              <CustomText variant="h7" style={styles.required}>
+                *
+              </CustomText>
+            )}
+          </CustomText>
+        </View>
       )}
 
-      <TextInput
-        ref={ref}
-        {...rest}
-        placeholder={placeholder}
-        onBlur={onBlur}
-        onFocus={onFocus}
-        onChangeText={onChangeText}
-        value={value}
-        placeholderTextColor={'#4e4b51'}
-        secureTextEntry={isPassword && !showPassword}
-        style={[styles.input, isPassword && { width: '78%' }]}
-      />
+      <View style={[styles.container, { height }]}>
+        {iconName && iconType && (
+          <VectorIcon
+            name={iconName}
+            type={iconType}
+            size={iconSize}
+            color={iconColor}
+            style={styles.leftIcon}
+          />
+        )}
 
-      {loading ? (
-        <View style={{}}>
+        <TextInput
+          ref={ref}
+          {...rest}
+          placeholder={placeholder}
+          onBlur={onBlur}
+          onFocus={onFocus}
+          onChangeText={onChangeText}
+          value={value}
+          placeholderTextColor={'#4e4b51'}
+          secureTextEntry={isPassword && !showPassword}
+          style={styles.input}
+          keyboardType={keyboardType || 'ascii-capable'}
+          editable={editable}
+        />
+
+        {loading ? (
           <ActivityIndicator
             size="small"
             color={Colors.tertiary}
-            style={{ marginRight: scale(6) }}
+            style={styles.loader}
           />
-        </View>
-      ) : (
-        isPassword && (
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setShowPassword(prev => !prev)}
-          >
-            <VectorIcon
-              name={showPassword ? 'eye' : 'eye-off'}
-              type="Feather"
-              size={size}
-              color={colors.textSecondary}
-              style={styles.rightIcon}
-            />
-          </TouchableOpacity>
-        )
-      )}
+        ) : (
+          isPassword && (
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setShowPassword(prev => !prev)}
+            >
+              <VectorIcon
+                name={showPassword ? 'eye' : 'eye-off'}
+                type="Feather"
+                size={size}
+                color={colors.textSecondary}
+                style={styles.rightIcon}
+              />
+            </TouchableOpacity>
+          )
+        )}
+      </View>
     </View>
   );
 };
@@ -102,22 +147,18 @@ export default CustomInput;
 
 const styles = StyleSheet.create({
   container: {
-    height: 45,
     borderColor: '#ccc',
     borderWidth: 1,
     borderRadius: 6,
     paddingHorizontal: 10,
-    marginTop: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
   input: {
     flex: 1,
     fontSize: moderateScale(14),
     fontFamily: 'Regular',
-    height: 45,
-    width: '90%',
+    height: '100%',
     marginLeft: 8,
     color: '#252525',
   },
@@ -126,5 +167,18 @@ const styles = StyleSheet.create({
   },
   rightIcon: {
     paddingHorizontal: 6,
+  },
+  required: {
+    color: colors.red,
+  },
+  label: {
+    fontWeight: '500',
+    color: colors.bgBlack,
+  },
+  labelWrapper: {
+    marginBottom: 4,
+  },
+  loader: {
+    marginRight: scale(6),
   },
 });

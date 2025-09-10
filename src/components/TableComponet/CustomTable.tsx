@@ -150,7 +150,7 @@ const TableRow = ({
   //   rate_type_id: 0,
   // } as const;
 
-  const [showModal, setShowModal] = useState(false);
+  const [showModal, setShowModal] = useState({ open: false, data: null });
 
   return (
     <>
@@ -211,8 +211,6 @@ const TableRow = ({
               </TouchableOpacity>
             </View>
 
-            
-
             {!item?.files ? (
               <TouchableOpacity
                 activeOpacity={0.8}
@@ -230,9 +228,9 @@ const TableRow = ({
               item?.files.map((file, index) => (
                 <TouchableOpacity
                   key={file['id'] || index}
-                  activeOpacity={0.8}
+                  activeOpacity={0.4}
                   style={styles.fileNumberCell}
-                  onPress={() => setShowModal(file)}
+                  onPress={() => setShowModal({ open: true, data: file })}
                 >
                   <CustomText
                     fontSize={14}
@@ -243,18 +241,17 @@ const TableRow = ({
                       file['get_account_i_d']['get_account_number'][
                         'account_number'
                       ]
-                      
                     }
+                    ``
                   </CustomText>
                 </TouchableOpacity>
               ))
             )}
           </Animated.View>
           <FileNumbersColumn
-              visible={showModal}
-              onClose={() => setShowModal(false)}
-              item ={showModal}
-            />
+            visible={showModal}
+            onClose={() => setShowModal(prev => ({ ...prev, open: false }))}
+          />
 
           <Animated.FlatList
             data={column.slice(1)}
@@ -295,7 +292,7 @@ const TableRow = ({
                       );
 
                     return (
-                      <View
+                      <TouchableOpacity
                         key={file['id'] || fileIndex}
                         style={[
                           styles.columnCell,
@@ -536,7 +533,7 @@ const TableRow = ({
                             </CustomText>
                           </View>
                         )}
-                      </View>
+                      </TouchableOpacity>
                     );
                   })}
                 </Animated.View>

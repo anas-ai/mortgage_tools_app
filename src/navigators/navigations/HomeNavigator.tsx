@@ -27,7 +27,9 @@ const HomeNavigatorStack = () => {
         }}
       />
       {/* Other HomeStack screens */}
-      {HomeStack.filter(item => item.name !== SCREEN_NAMES.DASHBOARD_SCREEN).map((item, index) => (
+      {HomeStack.filter(
+        item => item.name !== SCREEN_NAMES.DASHBOARD_SCREEN,
+      ).map((item, index) => (
         <Stack.Screen
           key={index}
           name={item.name}

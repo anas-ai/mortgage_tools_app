@@ -1216,7 +1216,7 @@ const ChatColumn = ({ file }: any) => {
             />
             <Controller
               control={control}
-              name="replyContent" // Changed from replayContent
+              name="replyContent" 
               render={({ field: { onChange, onBlur, value } }) => (
                 <CustomInput
                   ref={(ref: any) => (inputRefs.current[item.id] = ref)}
@@ -1225,7 +1225,7 @@ const ChatColumn = ({ file }: any) => {
                   value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
-                  width={'70%'}
+                  width={'78%'}
                   style={{
                     borderColor: inputRefs.current[item.id]
                       ? colors.primary
@@ -1460,6 +1460,8 @@ const ChatColumn = ({ file }: any) => {
             </CustomText>
           </TouchableOpacity>
         </KeyboardAvoidingView>
+
+        
         <AlertPro
           ref={alertRef}
           onConfirm={() => {
