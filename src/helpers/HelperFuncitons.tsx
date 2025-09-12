@@ -124,3 +124,5 @@ export const formatCurrency = (value: string | number) => {
     maximumFractionDigits: 2,
   })}`;
 };
+
+

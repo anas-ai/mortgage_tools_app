@@ -1,19 +1,19 @@
 import { Divider } from '@rneui/themed';
 import debounce from 'lodash.debounce';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Controller, useFieldArray, useForm } from 'react-hook-form';
+import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form';
 import {
   Alert,
-  FlatList,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
+  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Dropdown } from 'react-native-element-dropdown';
+import { Dropdown, MultiSelect } from 'react-native-element-dropdown';
 import Modal from 'react-native-modal';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { scale } from 'react-native-size-matters';
@@ -28,6 +28,14 @@ import CustomInput from '../common/CustomInput';
 import CustomText from '../common/CustomText';
 import ExpandableSection from '../common/ExpandableSection ';
 import { createTransposedArray } from '../../helpers/HelperFuncitons';
+import {
+  communicationList,
+  empType,
+  lineOfBusinessType,
+  occupencyList,
+  rateType,
+  termType,
+} from '../../utils/FileNumberDropdwonItems';
 
 type visiableProps = {
   open: boolean;
@@ -38,6 +46,13 @@ type Props = {
   visible: visiableProps;
   onClose: (open: boolean) => void;
 };
+
+interface Partner {
+  id: string;
+  first_name: string;
+  last_name: string;
+  label?: string; // Optional, as it seems to be used in MultiSelect
+}
 type Borrowertype = {
   borrowerFirstName: string;
   borrowerLastName: string;
@@ -72,94 +87,37 @@ type FormValues = {
   tds: string;
   occupancy: string;
   ltv: string;
-
+  communication: number;
   mortgages: MortgageType[];
+  partners: [];
 };
 
 const FileNumbersColumn = ({ visible, onClose }: Props) => {
   console.log(visible?.data?.get_account_i_d?.account_id, 'item');
-  function parseCurrency(value: string): string {
+
+  const currencyFormatSimple = (value: any) => {
     if (!value) return '';
-    return value.replace(/[^0-9.]/g, ''); // Remove everything except numbers and decimal point
-  }
 
-  // Helper function to format currency for display
-  function currencyFormat(value: any): string {
-    if (!value || isNaN(parseFloat(value))) return '$0.00'; // Handle empty or invalid input
-    const num = parseFloat(value);
-    return `$${num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`; // Format as $X,XXX.XX
-  }
+    const numericValue = value.toString().replace(/[^0-9]/g, '');
 
-  const empType = [
-    { label: 'Cellular', value: 'Cellular' },
-    { label: 'Work', value: 'Work' },
-    { label: 'Home', value: 'Home' },
-  ];
+    if (!numericValue) return '';
 
-  const communicationList: any[] = [
-    { key: 'Communicate with Borrower(s)', value: 1 },
-    { key: 'Communicate with Partner(s)', value: 2 },
-    { key: 'Communicate with Borrower(s) & Partner(s)', value: 3 },
-  ];
+    const number = parseInt(numericValue) || 0;
 
-  const occupencyList = [
-    { label: 'Owner Occupied', value: 'Owner Occupied' },
-    { label: 'Owner Occupied & Rental', value: 'Owner Occupied & Rental' },
-    { label: 'Rental', value: 'Rental' },
-    { label: 'Second Home', value: 'Second Home' },
-  ];
+    return `${number.toLocaleString('en-US')}.00`;
+  };
 
-  const rateType: any[] = [
-    { label: 'adjustable', value: 'adjustable' },
-    { label: 'fixed', value: 'fixed' },
-    { label: 'variable', value: 'variable' },
-  ];
-
-  const termType: any[] = [
-    { label: 'open', value: 'open' },
-    { label: 'closed', value: 'closed' },
-    { label: 'convertible', value: 'convertible' },
-  ];
-
-  const lineOfBusinessType = [
-    { label: 'A', value: 'A' },
-    { label: 'B', value: 'B' },
-    { label: 'C', value: 'C' },
-  ];
-
-  const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const userInfo = GetObjectFromStorage<any>('userInfo');
 
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
-  const [borrowInfo, setBorrowInfo] = useState<any | {}>({});
+  const [fileInfo, setfileInfo] = useState<any | {}>({});
   const [selectedDateIndex, setSelectedDateIndex] = useState<number | null>(
     null,
   );
   const [seletedBorrower, setSelectBorrower] = useState<any | null>(null);
-
-  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
-
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener(
-      'keyboardDidShow',
-      () => {
-        setKeyboardVisible(true);
-      },
-    );
-    const keyboardDidHideListener = Keyboard.addListener(
-      'keyboardDidHide',
-      () => {
-        setKeyboardVisible(false);
-      },
-    );
-
-    return () => {
-      keyboardDidShowListener.remove();
-      keyboardDidHideListener.remove();
-    };
-  }, [[isKeyboardVisible]]);
+  const [fileInfoLoading,setfileInfoLoading] = useState(false)
 
   const showDatePicker = (index: number) => {
     setSelectedDateIndex(index);
@@ -171,36 +129,46 @@ const FileNumbersColumn = ({ visible, onClose }: Props) => {
     setDatePickerVisibility(false);
   };
 
-  const fetchBorrowInfo = async () => {
+  const fetchFileInfo = async () => {
     const file_id = visible?.data?.get_account_i_d?.account_id;
-
+    setfileInfoLoading(true)
     try {
       const res = await axiosInstance.get(
-        ApiConfig.BORROW_INFO_API(userInfo.id, 0, file_id),
+        ApiConfig.FILE_INFO_API(userInfo.id, 0, file_id),
       );
-      console.log(res.data, 'borrowerin');
-      setBorrowInfo(res?.data);
+      console.log(res.data, 'fileInfo');
+      setfileInfo(res?.data);
+      console.log(res?.data?.partners, 'parn');
     } catch (error: any) {
-      console.log('Error duering fetchBorrowInfo', error.message);
+      console.log('Error duering fetchFileInfo', error.message);
+    }finally{
+      setfileInfoLoading(false)
     }
   };
 
   const { control, handleSubmit, reset, setValue, getValues } =
     useForm<FormValues>({
       defaultValues: {
-        fileNumber: borrowInfo?.accountInfo?.account_number,
-        searchBorrower: borrowInfo?.borrowersfirstname,
+        fileNumber: fileInfo?.accountInfo?.account_number,
+        searchBorrower: fileInfo?.borrowersfirstname,
         borrowers: [],
-        propertyAddress: borrowInfo?.accountInfo?.property_address,
-        gds: borrowInfo?.accountInfo?.income_gds,
-        propertyValue: borrowInfo?.accountInfo?.property_value,
-        tds: borrowInfo?.accountInfo?.income_tds,
-        occupancy: borrowInfo?.accountInfo?.occupancy,
-        ltv: borrowInfo?.accountInfo?.ltv,
+        propertyAddress: fileInfo?.accountInfo?.property_address,
+        gds: fileInfo?.accountInfo?.income_gds,
+        propertyValue: fileInfo?.accountInfo?.property_value,
+        tds: fileInfo?.accountInfo?.income_tds,
+        occupancy: fileInfo?.accountInfo?.occupancy,
+        ltv: fileInfo?.accountInfo?.ltv,
         mortgages: [],
+        communication: 0,
+        partners: [],
       },
     });
 
+  const watchedCommunication = useWatch({
+    control,
+    name: 'communication',
+    defaultValue: 0,
+  });
   const {
     fields: borrowersFields,
     append: appendBorrowers,
@@ -218,9 +186,7 @@ const FileNumbersColumn = ({ visible, onClose }: Props) => {
     name: 'mortgages',
   });
 
-  useEffect(() => {
-    setValue('fileNumber', borrowInfo?.accountInfo?.account_number);
-  }, [borrowInfo?.accountInfo?.account_number]);
+  
 
   const fetchAutoCompleteSearch = async (text: string) => {
     if (!text) {
@@ -249,14 +215,15 @@ const FileNumbersColumn = ({ visible, onClose }: Props) => {
   );
 
   useEffect(() => {
-    fetchBorrowInfo();
+    
+    fetchFileInfo();
   }, [visible?.open]);
 
   useEffect(() => {
     if (!visible) {
       setResults([]);
       reset({
-        fileNumber: borrowInfo?.accountInfo?.account_number || '',
+        fileNumber: fileInfo?.accountInfo?.account_number || '',
         searchBorrower: '',
         borrowers: [],
         propertyAddress: '',
@@ -265,13 +232,14 @@ const FileNumbersColumn = ({ visible, onClose }: Props) => {
         tds: '',
         occupancy: '',
         ltv: '',
+        mortgages: [],
       });
     }
   }, [visible?.open, reset]);
 
   useEffect(() => {
-    if (borrowInfo?.accountInfo) {
-      const accountInfo = borrowInfo.accountInfo;
+    if (fileInfo?.accountInfo) {
+      const accountInfo = fileInfo.accountInfo;
       setValue('fileNumber', accountInfo.account_number || '');
       setValue('propertyAddress', accountInfo.property_address || '');
       setValue('gds', String(accountInfo.income_gds ?? ''));
@@ -279,6 +247,7 @@ const FileNumbersColumn = ({ visible, onClose }: Props) => {
       setValue('tds', String(accountInfo.income_tds ?? ''));
       setValue('occupancy', accountInfo.occupancy || '');
       setValue('ltv', String(accountInfo.ltv ?? ''));
+      setValue('communication', Number(accountInfo?.communication || 0));
 
       // Transform mortgage data using createTransposedArray
       const mortgageData = createTransposedArray({
@@ -296,8 +265,8 @@ const FileNumbersColumn = ({ visible, onClose }: Props) => {
       });
 
       // Initialize borrowers array
-      const borrowersData = Array.isArray(borrowInfo?.borrowers)
-        ? borrowInfo.borrowers.map((borrower: any) => ({
+      const borrowersData = Array.isArray(fileInfo?.borrowers)
+        ? fileInfo.borrowers.map((borrower: any) => ({
             borrowerFirstName: borrower.firstname || '',
             borrowerLastName: borrower.lastname || '',
             borrower_DOB: borrower.dob || '',
@@ -317,6 +286,7 @@ const FileNumbersColumn = ({ visible, onClose }: Props) => {
         tds: String(accountInfo.income_tds ?? ''),
         occupancy: accountInfo.occupancy || '',
         ltv: String(accountInfo.ltv ?? ''),
+        communication: Number(accountInfo.communication || 0),
         borrowers: borrowersData,
         mortgages: mortgageData.map(mortgage => ({
           balance: String(mortgage.balance || ''),
@@ -326,14 +296,44 @@ const FileNumbersColumn = ({ visible, onClose }: Props) => {
           lineOfBusiness: mortgage.lineOfBusiness || '',
           interestRate: String(mortgage.interestRate || ''),
           discount: String(mortgage.discount || ''),
-          netRate: String(mortgage.netRate || ''),
+          netRate: String(
+            (
+              parseFloat(mortgage.interestRate || '0') -
+              parseFloat(mortgage.discount || '0')
+            ).toFixed(2),
+          ),
           term: mortgage.term || '',
           amortization: mortgage.amortization || '',
           renewalDate: mortgage.renewalDate || '',
         })),
       });
     }
-  }, [borrowInfo, setValue, reset, getValues]);
+  }, [fileInfo, setValue, reset, getValues]);
+
+  const watchedMortgages = useWatch({ control, name: 'mortgages' }) || [];
+
+  useEffect(() => {
+    watchedMortgages.forEach((mortgage: MortgageType, index: number) => {
+      if (
+        mortgage &&
+        (mortgage.interestRate !== undefined || mortgage.discount !== undefined)
+      ) {
+        const interestNum = parseFloat(mortgage.interestRate) || 0;
+        const discountNum = parseFloat(mortgage.discount) || 0;
+        const calculatedNetRate = (interestNum - discountNum).toFixed(2);
+
+        // Only update if different (prevents infinite loops)
+        const currentNetRate = getValues(`mortgages.${index}.netRate`) || '';
+        if (currentNetRate !== calculatedNetRate) {
+          setValue(`mortgages.${index}.netRate`, calculatedNetRate, {
+            shouldValidate: false,
+            shouldDirty: false, // Keeps form "clean" for auto-updates
+          });
+        }
+      }
+    });
+  }, [watchedMortgages, setValue, getValues]);
+
   const handleAddBorrower = () => {
     // Check if the borrower limit is reached
     if (borrowersFields.length >= 4) {
@@ -360,6 +360,13 @@ const FileNumbersColumn = ({ visible, onClose }: Props) => {
       setValue('searchBorrower', '');
     }
   };
+
+  const partnerOptions =
+    fileInfo?.partners?.map((p: Partner) => ({
+      label: `${p.first_name} ${p.last_name}`,
+      value: p, // store full partner
+    })) || [];
+
   return (
     <Modal
       style={styles.modalContainer}
@@ -706,6 +713,7 @@ const FileNumbersColumn = ({ visible, onClose }: Props) => {
                   >
                     Type
                   </CustomText>
+
                   <Controller
                     control={control}
                     name={`borrowers.${index}.borrower_type`}
@@ -762,7 +770,7 @@ const FileNumbersColumn = ({ visible, onClose }: Props) => {
             <CustomText
               variant="h6"
               fontFamily="Bold"
-              fontSize={15}
+              fontSize={14}
               style={{
                 fontWeight: '500',
                 color: colors.bgBlack,
@@ -770,26 +778,94 @@ const FileNumbersColumn = ({ visible, onClose }: Props) => {
             >
               Communicate With
             </CustomText>
-
-            <Dropdown
-              style={styles.dropdown}
-              data={empType || ''}
-              placeholder="Select User"
-              labelField="label"
-              valueField="value"
-              value={selectedUser}
-              selectedTextStyle={{ paddingLeft: scale(20) }}
-              onChange={item => setSelectedUser(item.value)}
-              placeholderStyle={{ paddingLeft: scale(20) }}
-              renderLeftIcon={() => (
-                <VectorIcon type="Entypo" name="flow-tree" size={20} />
+            <Controller
+              control={control}
+              name="communication"
+              render={({ field: { value, onChange } }) => (
+                console.log(value, 'valie'),
+                (
+                  <Dropdown
+                    style={styles.dropdown}
+                    data={communicationList || ''}
+                    placeholder="Select User"
+                    labelField="label"
+                    valueField="value"
+                    value={value}
+                    selectedTextStyle={{
+                      paddingLeft: scale(18),
+                      fontSize: scale(14),
+                    }}
+                    onChange={item => onChange(item.value)}
+                    renderLeftIcon={() => (
+                      <VectorIcon type="Entypo" name="flow-tree" size={20} />
+                    )}
+                  />
+                )
               )}
             />
+
+            {(Number(watchedCommunication) === 2 ||
+              Number(watchedCommunication) === 3) && (
+              <>
+                <View style={{ marginVertical: scale(10) }}>
+                  <CustomText
+                    variant="h6"
+                    fontFamily="Bold"
+                    fontSize={14}
+                    style={{
+                      fontWeight: '500',
+                      color: colors.bgBlack,
+                    }}
+                  >
+                    Partners
+                  </CustomText>
+                </View>
+
+                <Controller
+                  control={control}
+                  name="partners"
+                  render={({ field: { value, onChange } }) => (
+                    <MultiSelect
+                      style={styles.dropdown}
+                      placeholderStyle={styles.placeholderStyle}
+                      selectedTextStyle={styles.selectedTextStyle}
+                      inputSearchStyle={styles.inputSearchStyle}
+                      iconStyle={styles.iconStyle}
+                      data={partnerOptions}
+                      labelField="label"
+                      valueField="value"
+                      placeholder="Select Partner(s)"
+                      search
+                      searchPlaceholder="Search..."
+                      value={value}
+                      onChange={onChange}
+                      renderSelectedItem={(item, unSelect) => (
+                        <TouchableOpacity
+                          style={styles.selectedItemContainer}
+                          onPress={() => unSelect && unSelect(item)}
+                        >
+                          <Text style={styles.selectedItemText}>
+                            {item.label}
+                          </Text>
+                          <VectorIcon
+                            type="EvilIcons"
+                            color="black"
+                            name="close-o"
+                            size={20}
+                          />
+                        </TouchableOpacity>
+                      )}
+                      selectedStyle={styles.selectedWrapper}
+                    />
+                  )}
+                />
+              </>
+            )}
 
             <ExpandableSection
               marginTop={20}
               title="Property & File Overview"
-              outputRange={borrowersFields.length * scale(380)}
+              outputRange={scale(380)}
             >
               <View>
                 <Controller
@@ -929,336 +1005,372 @@ const FileNumbersColumn = ({ visible, onClose }: Props) => {
             <ExpandableSection
               title="Mortgage(s)"
               marginTop={10}
-              outputRange={mortgageFields.length * 880}
+              outputRange={mortgageFields.length * 900}
             >
-              {mortgageFields.map((item, index) => (
-                <View
-                  key={item.id}
-                  style={{ marginTop: index === 0 ? 0 : scale(20) }}
-                >
+              {mortgageFields.length > 0 ? (
+                mortgageFields.map((item, index) => (
                   <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: scale(8),
-                    }}
+                    key={item.id}
+                    style={{ marginTop: index === 0 ? 0 : scale(20) }}
                   >
-                    <CustomText
-                      variant="h6"
-                      fontFamily="Bold"
-                      style={{ color: colors.black, fontWeight: '500' }}
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: scale(8),
+                      }}
                     >
-                      Mortgage ({index + 1})
-                    </CustomText>
-                    <Divider style={{ flex: 1 }} />
-                    <TouchableOpacity onPress={() => removeMortgage(index)}>
                       <CustomText
                         variant="h6"
                         fontFamily="Bold"
-                        style={{ color: colors.red }}
+                        style={{ color: colors.black, fontWeight: '500' }}
                       >
-                        Delete
+                        Mortgage ({index + 1})
                       </CustomText>
-                    </TouchableOpacity>
-                  </View>
-
-                  <Controller
-                    control={control}
-                    name={`mortgages.${index}.balance`}
-                    render={({ field: { onChange, onBlur, value } }) => (
-                      <CustomInput
-                        label="Enter Balance"
-                        iconType="FontAwesome"
-                        iconName="dollar"
-                        placeholder="Enter LTV (%)"
-                        placeholderTextColor={colors.graytextColor}
-                        iconColor={colors.graytextColor}
-                        value={value ? currencyFormat(value) : ''}
-                        onChangeText={text => onChange(currencyFormat(text))}
-                        onBlur={onBlur}
-                        style={{ color: colors.black, fontWeight: 'bold' }}
-                      />
-                    )}
-                  />
-                  <Controller
-                    control={control}
-                    name={`mortgages.${index}.maturityDate`}
-                    render={({ field: { onChange, onBlur, value } }) => (
-                      <TouchableOpacity
-                        activeOpacity={0.8}
-                        onPress={() => showDatePicker(index)}
-                      >
-                        <CustomInput
-                          label="Maturity Date"
-                          iconType="AntDesign"
-                          iconName="calendar"
-                          placeholder="Select your maturity date"
-                          placeholderTextColor={colors.graytextColor}
-                          iconColor={colors.graytextColor}
-                          onChangeText={onChange}
-                          onBlur={onBlur}
-                          value={value}
-                          editable={false}
-                          style={{ color: colors.black, fontWeight: 'bold' }}
-                        />
+                      <Divider style={{ flex: 1 }} />
+                      <TouchableOpacity onPress={() => removeMortgage(index)}>
+                        <CustomText
+                          variant="h6"
+                          fontFamily="Bold"
+                          style={{ color: colors.red }}
+                        >
+                          Delete
+                        </CustomText>
                       </TouchableOpacity>
-                    )}
-                  />
-                  <DateTimePickerModal
-                    isVisible={isDatePickerVisible}
-                    mode="date"
-                    onConfirm={date => {
-                      setValue(
-                        `mortgages.${index}.maturityDate`,
-                        date.toLocaleDateString(),
-                      );
-                      hideDatePicker();
-                    }}
-                    onCancel={hideDatePicker}
-                  />
+                    </View>
 
-                  <View style={{ paddingTop: scale(10) }}>
-                    <CustomText
-                      variant="h6"
-                      fontFamily="Bold"
-                      fontSize={13}
-                      style={{
-                        fontWeight: '500',
-                        color: colors.bgBlack,
-                      }}
-                    >
-                      Rate Type
-                    </CustomText>
                     <Controller
                       control={control}
-                      name={`mortgages.${index}.rateType`}
-                      render={({ field: { onChange, value, onBlur } }) => (
-                        <Dropdown
-                          style={styles.dropdown}
-                          data={rateType || ''}
-                          placeholder="Rate Type"
-                          labelField="label"
-                          valueField="value"
-                          value={value}
-                          selectedTextStyle={{ paddingLeft: scale(20) }}
-                          onChange={onChange}
-                          placeholderStyle={{ paddingLeft: scale(20) }}
-                          renderLeftIcon={() => (
-                            <VectorIcon
-                              type="FontAwesome5"
-                              name="hand-holding-usd"
-                              size={20}
-                            />
-                          )}
-                        />
-                      )}
-                    />
-                  </View>
-                  <View style={{ paddingTop: scale(10) }}>
-                    <CustomText
-                      variant="h6"
-                      fontFamily="Bold"
-                      fontSize={13}
-                      style={{
-                        fontWeight: '500',
-                        color: colors.bgBlack,
-                      }}
-                    >
-                      Term Type
-                    </CustomText>
-                    <Controller
-                      control={control}
-                      name={`mortgages.${index}.termType`}
-                      render={({ field: { onChange, value } }) => (
-                        <Dropdown
-                          style={styles.dropdown}
-                          data={termType || ''}
-                          placeholder="Term Type"
-                          labelField="label"
-                          valueField="value"
-                          value={value}
-                          selectedTextStyle={{ paddingLeft: scale(20) }}
-                          onChange={onChange}
-                          placeholderStyle={{ paddingLeft: scale(20) }}
-                          renderLeftIcon={() => (
-                            <VectorIcon
-                              type="FontAwesome5"
-                              name="hand-holding-usd"
-                              size={20}
-                            />
-                          )}
-                        />
-                      )}
-                    />
-                  </View>
-                  <View style={{ paddingTop: scale(10) }}>
-                    <CustomText
-                      variant="h6"
-                      fontFamily="Bold"
-                      fontSize={13}
-                      style={{
-                        fontWeight: '500',
-                        color: colors.bgBlack,
-                      }}
-                    >
-                      Line Of Business
-                    </CustomText>
-                    <Controller
-                      control={control}
-                      name={`mortgages.${index}.lineOfBusiness`}
+                      name={`mortgages.${index}.balance`}
                       render={({ field: { onChange, onBlur, value } }) => (
-                        <Dropdown
-                          style={styles.dropdown}
-                          data={lineOfBusinessType || ''}
-                          placeholder="Select your line of business"
-                          labelField="label"
-                          valueField="value"
-                          value={value}
-                          selectedTextStyle={{ paddingLeft: scale(20) }}
-                          onChange={onChange}
+                        <CustomInput
+                          label="Enter Balance"
+                          iconType="FontAwesome"
+                          iconName="dollar"
+                          placeholder="Enter Balance"
+                          placeholderTextColor={colors.graytextColor}
+                          iconColor={colors.graytextColor}
+                          value={value ? currencyFormatSimple(value) : ''}
+                          onChangeText={text => {
+                            // Remove formatting to get raw number for storing
+                            const rawValue = text.replace(/[^0-9.]/g, '');
+                            onChange(rawValue); // Store raw number
+                          }}
                           onBlur={onBlur}
-                          placeholderStyle={{ paddingLeft: scale(20) }}
-                          renderLeftIcon={() => (
-                            <VectorIcon
-                              type="MaterialIcons"
-                              name="business-center"
-                              size={20}
-                            />
-                          )}
+                          style={{ color: colors.black, fontWeight: 'bold' }}
+                          keyboardType="numeric"
                         />
                       )}
                     />
-                  </View>
-                  <Controller
-                    control={control}
-                    name={`mortgages.${index}.interestRate`}
-                    render={({ field: { onChange, onBlur, value } }) => (
-                      <CustomInput
-                        label="Interest Rate (%)"
-                        iconType="Entypo"
-                        iconName="calculator"
-                        placeholder="Enter Interest Rate (%)"
-                        placeholderTextColor={colors.graytextColor}
-                        iconColor={colors.graytextColor}
-                        value={value}
-                        onChangeText={onChange}
-                        onBlur={onBlur}
-                        style={{ color: colors.black, fontWeight: 'bold' }}
-                      />
-                    )}
-                  />
-                  <Controller
-                    control={control}
-                    name={`mortgages.${index}.discount`}
-                    render={({ field: { onChange, onBlur, value } }) => (
-                      <CustomInput
-                        label="Discount (%)"
-                        iconType="MaterialIcons"
-                        iconName="discount"
-                        placeholder="EnterDiscount (%)"
-                        placeholderTextColor={colors.graytextColor}
-                        iconColor={colors.graytextColor}
-                        value={value}
-                        onChangeText={onChange}
-                        onBlur={onBlur}
-                        style={{ color: colors.black, fontWeight: 'bold' }}
-                      />
-                    )}
-                  />
-                  <Controller
-                    control={control}
-                    name={`mortgages.${index}.netRate`}
-                    render={({ field: { onChange, onBlur, value } }) => (
-                      <CustomInput
-                        label="Net rate"
-                        iconType="Feather"
-                        iconName="divide"
-                        placeholder="Enter Net rate"
-                        placeholderTextColor={colors.lightGray}
-                        iconColor={colors.graytextColor}
-                        value={value}
-                        onChangeText={onChange}
-                        onBlur={onBlur}
-                        editable={false}
-                        style={{ color: colors.black, fontWeight: 'bold' }}
-                      />
-                    )}
-                  />
-                  <Controller
-                    control={control}
-                    name={`mortgages.${index}.term`}
-                    render={({ field: { onChange, onBlur, value } }) => (
-                      <CustomInput
-                        label="Term"
-                        iconType="FontAwesome"
-                        iconName="file"
-                        placeholder="Enter Term"
-                        placeholderTextColor={colors.graytextColor}
-                        iconColor={colors.graytextColor}
-                        value={value}
-                        onChangeText={onChange}
-                        onBlur={onBlur}
-                        style={{ color: colors.black, fontWeight: 'bold' }}
-                      />
-                    )}
-                  />
-                  <Controller
-                    control={control}
-                    name={`mortgages.${index}.amortization`}
-                    render={({ field: { onChange, onBlur, value } }) => (
-                      <CustomInput
-                        label="Amortization"
-                        iconType="FontAwesome"
-                        iconName="file"
-                        placeholder="Enter Amortization"
-                        placeholderTextColor={colors.graytextColor}
-                        iconColor={colors.graytextColor}
-                        value={value}
-                        onChangeText={onChange}
-                        onBlur={onBlur}
-                        style={{ color: colors.black, fontWeight: 'bold' }}
-                      />
-                    )}
-                  />
-                  <Controller
-                    control={control}
-                    name={`mortgages.${index}.renewalDate`}
-                    render={({ field: { onChange, onBlur, value } }) => (
-                      <TouchableOpacity
-                        activeOpacity={0.8}
-                        onPress={() => showDatePicker(index)}
+                    <Controller
+                      control={control}
+                      name={`mortgages.${index}.maturityDate`}
+                      render={({ field: { onChange, onBlur, value } }) => (
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          onPress={() => showDatePicker(index)}
+                        >
+                          <CustomInput
+                            label="Maturity Date"
+                            iconType="AntDesign"
+                            iconName="calendar"
+                            placeholder="Select your maturity date"
+                            placeholderTextColor={colors.graytextColor}
+                            iconColor={colors.graytextColor}
+                            onChangeText={onChange}
+                            onBlur={onBlur}
+                            value={value}
+                            editable={false}
+                            style={{ color: colors.black, fontWeight: 'bold' }}
+                          />
+                        </TouchableOpacity>
+                      )}
+                    />
+                    <DateTimePickerModal
+                      isVisible={isDatePickerVisible}
+                      mode="date"
+                      onConfirm={date => {
+                        setValue(
+                          `mortgages.${index}.maturityDate`,
+                          date.toLocaleDateString(),
+                        );
+                        hideDatePicker();
+                      }}
+                      onCancel={hideDatePicker}
+                    />
+
+                    <View style={{ paddingTop: scale(10) }}>
+                      <CustomText
+                        variant="h6"
+                        fontFamily="Bold"
+                        fontSize={13}
+                        style={{
+                          fontWeight: '500',
+                          color: colors.bgBlack,
+                        }}
                       >
+                        Rate Type
+                      </CustomText>
+                      <Controller
+                        control={control}
+                        name={`mortgages.${index}.rateType`}
+                        render={({ field: { onChange, value, onBlur } }) => (
+                          <Dropdown
+                            style={styles.dropdown}
+                            data={rateType || ''}
+                            placeholder="Rate Type"
+                            labelField="label"
+                            valueField="value"
+                            value={value}
+                            selectedTextStyle={{ paddingLeft: scale(20) }}
+                            onChange={onChange}
+                            placeholderStyle={{ paddingLeft: scale(20) }}
+                            renderLeftIcon={() => (
+                              <VectorIcon
+                                type="FontAwesome5"
+                                name="hand-holding-usd"
+                                size={20}
+                              />
+                            )}
+                          />
+                        )}
+                      />
+                    </View>
+                    <View style={{ paddingTop: scale(10) }}>
+                      <CustomText
+                        variant="h6"
+                        fontFamily="Bold"
+                        fontSize={13}
+                        style={{
+                          fontWeight: '500',
+                          color: colors.bgBlack,
+                        }}
+                      >
+                        Term Type
+                      </CustomText>
+                      <Controller
+                        control={control}
+                        name={`mortgages.${index}.termType`}
+                        render={({ field: { onChange, value } }) => (
+                          <Dropdown
+                            style={styles.dropdown}
+                            data={termType || ''}
+                            placeholder="Term Type"
+                            labelField="label"
+                            valueField="value"
+                            value={value}
+                            selectedTextStyle={{ paddingLeft: scale(20) }}
+                            onChange={onChange}
+                            placeholderStyle={{ paddingLeft: scale(20) }}
+                            renderLeftIcon={() => (
+                              <VectorIcon
+                                type="FontAwesome5"
+                                name="hand-holding-usd"
+                                size={20}
+                              />
+                            )}
+                          />
+                        )}
+                      />
+                    </View>
+                    <View style={{ paddingTop: scale(10) }}>
+                      <CustomText
+                        variant="h6"
+                        fontFamily="Bold"
+                        fontSize={13}
+                        style={{
+                          fontWeight: '500',
+                          color: colors.bgBlack,
+                        }}
+                      >
+                        Line Of Business
+                      </CustomText>
+                      <Controller
+                        control={control}
+                        name={`mortgages.${index}.lineOfBusiness`}
+                        render={({ field: { onChange, onBlur, value } }) => (
+                          <Dropdown
+                            style={styles.dropdown}
+                            data={lineOfBusinessType || ''}
+                            placeholder="Select your line of business"
+                            labelField="label"
+                            valueField="value"
+                            value={value}
+                            selectedTextStyle={{ paddingLeft: scale(20) }}
+                            onChange={onChange}
+                            onBlur={onBlur}
+                            placeholderStyle={{ paddingLeft: scale(20) }}
+                            renderLeftIcon={() => (
+                              <VectorIcon
+                                type="MaterialIcons"
+                                name="business-center"
+                                size={20}
+                              />
+                            )}
+                          />
+                        )}
+                      />
+                    </View>
+                    <Controller
+                      control={control}
+                      name={`mortgages.${index}.interestRate`}
+                      render={({ field: { onChange, onBlur, value } }) => (
                         <CustomInput
-                          label="Renewal  Date"
-                          iconType="AntDesign"
-                          iconName="calendar"
-                          placeholder="Select your Renewal Date"
+                          label="Interest Rate (%)"
+                          iconType="Entypo"
+                          iconName="calculator"
+                          placeholder="Enter Interest Rate (%)"
                           placeholderTextColor={colors.graytextColor}
                           iconColor={colors.graytextColor}
+                          value={value}
                           onChangeText={onChange}
                           onBlur={onBlur}
-                          value={value}
-                          editable={false}
                           style={{ color: colors.black, fontWeight: 'bold' }}
                         />
-                      </TouchableOpacity>
-                    )}
-                  />
-                  <DateTimePickerModal
-                    isVisible={isDatePickerVisible}
-                    mode="date"
-                    onConfirm={date => {
-                      setValue(
-                        `mortgages.${index}.renewalDate`,
-                        date.toLocaleDateString(),
-                      );
-                      hideDatePicker();
-                    }}
-                    onCancel={hideDatePicker}
-                  />
-                </View>
-              ))}
+                      )}
+                    />
+                    <Controller
+                      control={control}
+                      name={`mortgages.${index}.discount`}
+                      render={({ field: { onChange, onBlur, value } }) => (
+                        <CustomInput
+                          label="Discount (%)"
+                          iconType="MaterialIcons"
+                          iconName="discount"
+                          placeholder="EnterDiscount (%)"
+                          placeholderTextColor={colors.graytextColor}
+                          iconColor={colors.graytextColor}
+                          value={value}
+                          onChangeText={onChange}
+                          onBlur={onBlur}
+                          style={{ color: colors.black, fontWeight: 'bold' }}
+                        />
+                      )}
+                    />
+                    <Controller
+                      control={control}
+                      name={`mortgages.${index}.netRate`}
+                      render={({ field: { onChange, onBlur, value } }) => {
+                        const interestRate = parseInt(
+                          getValues(`mortgages.${index}.interestRate`) || '0',
+                        );
+                        console.log(interestRate, 'inte');
+
+                        const discount = parseInt(
+                          getValues(`mortgages.${index}.discount`) || '0',
+                        );
+                        const calculatedNetRate = (
+                          interestRate - discount
+                        ).toFixed(0);
+                        console.log(calculatedNetRate, 'cal');
+                        return (
+                          <CustomInput
+                            label="Net Rate (Auto: Interest - Discount)"
+                            iconType="Feather"
+                            iconName="divide"
+                            placeholder="Calculated Automatically"
+                            placeholderTextColor={colors.lightGray}
+                            iconColor={colors.graytextColor}
+                            value={calculatedNetRate}
+                            onChangeText={onChange}
+                            onBlur={onBlur}
+                            editable={false}
+                            style={{
+                              color: colors.green,
+                              fontWeight: 'bold',
+                              opacity: 1,
+                            }}
+                          />
+                        );
+                      }}
+                    />
+                    <Controller
+                      control={control}
+                      name={`mortgages.${index}.term`}
+                      render={({ field: { onChange, onBlur, value } }) => (
+                        <CustomInput
+                          label="Term"
+                          iconType="FontAwesome"
+                          iconName="file"
+                          placeholder="Enter Term"
+                          placeholderTextColor={colors.graytextColor}
+                          iconColor={colors.graytextColor}
+                          value={value}
+                          onChangeText={onChange}
+                          onBlur={onBlur}
+                          style={{ color: colors.black, fontWeight: 'bold' }}
+                        />
+                      )}
+                    />
+                    <Controller
+                      control={control}
+                      name={`mortgages.${index}.amortization`}
+                      render={({ field: { onChange, onBlur, value } }) => (
+                        <CustomInput
+                          label="Amortization"
+                          iconType="FontAwesome"
+                          iconName="file"
+                          placeholder="Enter Amortization"
+                          placeholderTextColor={colors.graytextColor}
+                          iconColor={colors.graytextColor}
+                          value={value}
+                          onChangeText={onChange}
+                          onBlur={onBlur}
+                          style={{ color: colors.black, fontWeight: 'bold' }}
+                        />
+                      )}
+                    />
+                    <Controller
+                      control={control}
+                      name={`mortgages.${index}.renewalDate`}
+                      render={({ field: { onChange, onBlur, value } }) => (
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          onPress={() => showDatePicker(index)}
+                        >
+                          <CustomInput
+                            label="Renewal  Date"
+                            iconType="AntDesign"
+                            iconName="calendar"
+                            placeholder="Select your Renewal Date"
+                            placeholderTextColor={colors.graytextColor}
+                            iconColor={colors.graytextColor}
+                            onChangeText={onChange}
+                            onBlur={onBlur}
+                            value={value}
+                            editable={false}
+                            style={{ color: colors.black, fontWeight: 'bold' }}
+                          />
+                        </TouchableOpacity>
+                      )}
+                    />
+                    <DateTimePickerModal
+                      isVisible={isDatePickerVisible}
+                      mode="date"
+                      onConfirm={date => {
+                        setValue(
+                          `mortgages.${index}.renewalDate`,
+                          date.toLocaleDateString(),
+                        );
+                        hideDatePicker();
+                      }}
+                      onCancel={hideDatePicker}
+                    />
+                  </View>
+                ))
+              ) : (
+                <CustomText
+                  variant="h6"
+                  fontSize={14}
+                  style={{
+                    color: colors.graytextColor,
+                    marginBottom: scale(10),
+                  }}
+                >
+                  No mortgages added yet.
+                </CustomText>
+              )}
               <View
                 style={{
                   paddingVertical: scale(10),
@@ -1414,6 +1526,83 @@ const styles = StyleSheet.create({
     borderRadius: scale(8),
     paddingHorizontal: scale(10),
     marginTop: scale(8),
+  },
+  Multidropdown: {
+    height: 42,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    borderWidth: 0.5,
+    borderColor: colors.bgBlack,
+  },
+  placeholderStyle: {
+    fontSize: 16,
+  },
+  selectedTextStyle: {
+    fontSize: 14,
+  },
+  iconStyle: {
+    width: 20,
+    height: 20,
+  },
+  inputSearchStyle: {
+    height: 40,
+    fontSize: 16,
+  },
+  icon: {
+    marginRight: 5,
+  },
+  item: {
+    padding: 17,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  selectedStyle: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 14,
+    backgroundColor: 'white',
+    shadowColor: '#000',
+    marginTop: 8,
+    marginRight: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
+  },
+  selectedItemText: {
+    fontSize: 13,
+    marginRight: 4,
+    color: '#333',
+  },
+  selectedItemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e6f0ff',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 16,
+    margin: 2,
+  },
+  selectedWrapper: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    padding: 4,
   },
 });
 

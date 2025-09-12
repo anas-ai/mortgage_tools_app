@@ -32,6 +32,6 @@ export const ApiConfig = {
   AUTOCOMPLETE_SEARCH_API: (userId: number, sharedId = 0, query: string) =>
     `${Config.BASE_URL}/autocomplete-search?user_id=${userId}&shareuserid=${sharedId}&query=${query}`,
   // borrowinfo
-  BORROW_INFO_API: (userId: number, sharedId = 0, fileId: number) =>
+  FILE_INFO_API: (userId: number, sharedId = 0, fileId: number) =>
     `${Config.BASE_URL}/dasboard/fetch/borrowinfo?user_id=${userId}&shareuserid=${sharedId}&file_id=${fileId}`,
 };
